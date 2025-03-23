@@ -1,4 +1,3 @@
-
 import { 
   CategoryType, 
   Transaction, 
@@ -128,6 +127,7 @@ export const mockCreditExpenses: CreditExpense[] = [
     date: "2023-05-20",
     installments: 12,
     currentInstallment: 1,
+    paidInstallments: [],
     createdAt: "2023-05-20",
     updatedAt: "2023-05-20"
   },
@@ -140,6 +140,7 @@ export const mockCreditExpenses: CreditExpense[] = [
     date: "2023-05-18",
     installments: 3,
     currentInstallment: 1,
+    paidInstallments: [],
     createdAt: "2023-05-18",
     updatedAt: "2023-05-18"
   }
