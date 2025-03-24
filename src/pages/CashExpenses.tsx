@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { CalendarIcon, DollarSign, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -40,12 +39,14 @@ import { CashExpense } from "@/types/finance";
 import { useFinance } from "@/providers/FinanceProvider";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { SearchInput } from "@/components/SearchInput";
 
 export default function CashExpenses() {
   const { t, language } = useLanguage();
   const { categories, cashExpenses, addTransaction, deleteTransaction } = useFinance();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [newExpense, setNewExpense] = useState({
     description: "",
     amount: "",
@@ -137,6 +138,12 @@ export default function CashExpenses() {
     acc[categoryId] += expense.amount;
     return acc;
   }, {} as Record<string, number>);
+
+  // Filter cash expenses based on search term
+  const filteredCashExpenses = cashExpenses.filter(expense => 
+    expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getCategoryName(expense.category).toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="space-y-8">
@@ -320,65 +327,72 @@ export default function CashExpenses() {
           <CardDescription>Your one-time cash payments</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            {cashExpenses.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {cashExpenses.map((expense) => (
-                    <TableRow key={expense.id} className="group">
-                      <TableCell className="font-medium">
-                        {expense.description}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: getCategoryColor(expense.category) }}
-                          />
-                          {getCategoryName(expense.category)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="flex items-center gap-1">
-                        <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                        {formatDate(expense.date, "dd/MM/yyyy", language)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(expense.amount, language)}
-                      </TableCell>
-                      <TableCell className="text-right p-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleDelete(expense.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                        </Button>
-                      </TableCell>
+          <div className="space-y-4">
+            <SearchInput
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder={t("search_cash_expenses")}
+            />
+            <div className="rounded-md border">
+              {filteredCashExpenses.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="flex flex-col items-center justify-center p-8 text-center animate-fade-in">
-                <div className="rounded-full bg-muted p-3 mb-4">
-                  <DollarSign className="h-6 w-6 text-muted-foreground" />
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCashExpenses.map((expense) => (
+                      <TableRow key={expense.id} className="group">
+                        <TableCell className="font-medium">
+                          {expense.description}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: getCategoryColor(expense.category) }}
+                            />
+                            {getCategoryName(expense.category)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="flex items-center gap-1">
+                          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                          {formatDate(expense.date, "dd/MM/yyyy", language)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(expense.amount, language)}
+                        </TableCell>
+                        <TableCell className="text-right p-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleDelete(expense.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+                  <div className="rounded-full bg-muted p-3 mb-4">
+                    <DollarSign className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold">No cash expenses</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm mt-1">
+                    You haven't added any cash expenses yet. Click the "Add Cash Expense" button to get started.
+                  </p>
                 </div>
-                <h3 className="text-lg font-semibold">No cash expenses</h3>
-                <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                  You haven't added any cash expenses yet. Click the "Add Cash Expense" button to get started.
-                </p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

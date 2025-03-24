@@ -54,12 +54,14 @@ import {
   getInstallmentBillingMonths 
 } from "@/lib/utils";
 import { CreditInstallmentProgress } from "@/components/CreditInstallmentProgress";
+import { SearchInput } from "@/components/SearchInput";
 
 export default function CreditExpenses() {
   const { t, language } = useLanguage();
   const { categories, creditCards, creditExpenses, addTransaction, deleteTransaction } = useFinance();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [newExpense, setNewExpense] = useState({
     description: "",
     amount: "",
@@ -263,6 +265,12 @@ export default function CreditExpenses() {
     
     return { billingMonth, billingYear, billingMonthName };
   };
+
+  // Filter credit expenses based on search term
+  const filteredCreditExpenses = creditExpenses.filter(expense => 
+    expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getCategoryName(expense.category).toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="space-y-8">
@@ -601,7 +609,12 @@ export default function CreditExpenses() {
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
-            {creditExpenses.length > 0 ? (
+            <SearchInput
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder={t("search_credit_expenses")}
+            />
+            {filteredCreditExpenses.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -617,7 +630,7 @@ export default function CreditExpenses() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {creditExpenses.map((expense) => {
+                  {filteredCreditExpenses.map((expense) => {
                     const card = expense.creditCardId 
                       ? creditCards.find(c => c.id === expense.creditCardId)
                       : creditCards.length > 0 ? creditCards[0] : null;
