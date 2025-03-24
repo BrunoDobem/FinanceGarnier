@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CalendarIcon, CreditCard, Plus, Trash2, Calendar } from "lucide-react";
+import { CalendarIcon, CreditCard, Plus, Trash2, Calendar, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
   Card, 
@@ -58,10 +58,11 @@ import { SearchInput } from "@/components/SearchInput";
 
 export default function CreditExpenses() {
   const { t, language } = useLanguage();
-  const { categories, creditCards, creditExpenses, addTransaction, deleteTransaction } = useFinance();
+  const { categories, creditCards, creditExpenses, addTransaction, updateTransaction, deleteTransaction } = useFinance();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingExpense, setEditingExpense] = useState<CreditExpense | null>(null);
   const [newExpense, setNewExpense] = useState({
     description: "",
     amount: "",
@@ -130,7 +131,9 @@ export default function CreditExpenses() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newExpense.description || !newExpense.amount || !newExpense.category) {
+    const form = editingExpense ? editingExpense : newExpense;
+    
+    if (!form.description || !form.amount || !form.category) {
       toast({
         title: t("error"),
         description: t("please_fill_required_fields"),
@@ -139,8 +142,8 @@ export default function CreditExpenses() {
       return;
     }
 
-    const amount = parseFloat(newExpense.amount);
-    const installments = parseInt(newExpense.installments);
+    const amount = typeof form.amount === 'string' ? parseFloat(form.amount) : form.amount;
+    const installments = typeof form.installments === 'string' ? parseInt(form.installments) : form.installments;
     
     if (isNaN(amount) || amount <= 0) {
       toast({
@@ -160,40 +163,60 @@ export default function CreditExpenses() {
       return;
     }
 
-    // Create a new credit expense
-    const expense: Omit<CreditExpense, "id" | "createdAt" | "updatedAt"> = {
-      type: "credit",
-      description: newExpense.description,
-      amount: amount,
-      category: newExpense.category,
-      date: newExpense.date,
-      installments: installments,
-      currentInstallment: 1,
-      creditCardId: newExpense.creditCardId || undefined
-    };
+    if (editingExpense) {
+      // Update existing credit expense
+      const updatedExpense: CreditExpense = {
+        ...editingExpense,
+        description: form.description,
+        amount: amount,
+        category: form.category,
+        date: form.date,
+        installments: installments,
+        creditCardId: form.creditCardId || undefined
+      };
 
-    addTransaction(expense);
-    
-    // Get the card to show in which month this will be billed
-    const cardId = newExpense.creditCardId || (creditCards.length > 0 ? creditCards[0].id : undefined);
-    const card = cardId ? creditCards.find(c => c.id === cardId) : undefined;
-    
-    if (card) {
-      const { billingMonthName } = getBillingCycleForPurchase(
-        newExpense.date, 
-        card.closingDay, 
-        card.dueDay
-      );
+      updateTransaction(updatedExpense);
       
       toast({
-        title: t("credit_expense_added"),
-        description: `${expense.description} - ${t("first_installment_on")} ${billingMonthName}`,
+        title: t("success"),
+        description: t("transaction_updated"),
       });
     } else {
-      toast({
-        title: t("credit_expense_added"),
-        description: `${expense.description}`,
-      });
+      // Create a new credit expense
+      const expense: Omit<CreditExpense, "id" | "createdAt" | "updatedAt"> = {
+        type: "credit",
+        description: form.description,
+        amount: amount,
+        category: form.category,
+        date: form.date,
+        installments: installments,
+        currentInstallment: 1,
+        creditCardId: form.creditCardId || undefined
+      };
+
+      addTransaction(expense);
+      
+      // Get the card to show in which month this will be billed
+      const cardId = form.creditCardId || (creditCards.length > 0 ? creditCards[0].id : undefined);
+      const card = cardId ? creditCards.find(c => c.id === cardId) : undefined;
+      
+      if (card) {
+        const { billingMonthName } = getBillingCycleForPurchase(
+          form.date, 
+          card.closingDay, 
+          card.dueDay
+        );
+        
+        toast({
+          title: t("credit_expense_added"),
+          description: `${expense.description} - ${t("first_installment_on")} ${billingMonthName}`,
+        });
+      } else {
+        toast({
+          title: t("credit_expense_added"),
+          description: `${expense.description}`,
+        });
+      }
     }
     
     // Reset form and close dialog
@@ -205,7 +228,17 @@ export default function CreditExpenses() {
       date: new Date().toISOString().split("T")[0],
       creditCardId: ""
     });
+    setEditingExpense(null);
     setIsDialogOpen(false);
+  };
+
+  const handleEdit = (expense: CreditExpense) => {
+    setEditingExpense({
+      ...expense,
+      amount: expense.amount.toString(),
+      installments: expense.installments.toString(),
+    });
+    setIsDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
@@ -281,7 +314,20 @@ export default function CreditExpenses() {
             {t("manage_credit_expenses")}
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setEditingExpense(null);
+            setNewExpense({
+              description: "",
+              amount: "",
+              category: "",
+              installments: "1",
+              date: new Date().toISOString().split("T")[0],
+              creditCardId: ""
+            });
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" /> {t("add_credit_expense")}
@@ -290,9 +336,13 @@ export default function CreditExpenses() {
           <DialogContent className="sm:max-w-[425px]">
             <form onSubmit={handleSubmit}>
               <DialogHeader>
-                <DialogTitle>{t("add_credit_expense")}</DialogTitle>
+                <DialogTitle>
+                  {editingExpense ? t("edit") : t("add_credit_expense")}
+                </DialogTitle>
                 <DialogDescription>
-                  {t("add_credit_expense_description")}
+                  {editingExpense 
+                    ? t("edit_category_description")
+                    : t("add_credit_expense_description")}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -300,201 +350,157 @@ export default function CreditExpenses() {
                   <Label htmlFor="description">{t("description")}</Label>
                   <Input
                     id="description"
-                    placeholder="New phone, furniture, etc."
-                    value={newExpense.description}
+                    placeholder="Ex: Smart TV, Notebook..."
+                    value={editingExpense?.description || newExpense.description}
                     onChange={(e) =>
-                      setNewExpense({
-                        ...newExpense,
-                        description: e.target.value,
-                      })
+                      editingExpense
+                        ? setEditingExpense({
+                            ...editingExpense,
+                            description: e.target.value,
+                          })
+                        : setNewExpense({
+                            ...newExpense,
+                            description: e.target.value,
+                          })
                     }
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="amount">{t("total")}</Label>
+                  <Label htmlFor="amount">{t("amount")}</Label>
                   <Input
                     id="amount"
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={newExpense.amount}
+                    value={editingExpense?.amount || newExpense.amount}
                     onChange={(e) =>
-                      setNewExpense({
-                        ...newExpense,
-                        amount: e.target.value,
-                      })
+                      editingExpense
+                        ? setEditingExpense({
+                            ...editingExpense,
+                            amount: e.target.value,
+                          })
+                        : setNewExpense({
+                            ...newExpense,
+                            amount: e.target.value,
+                          })
                     }
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="category">{t("category")}</Label>
                   <Select
-                    value={newExpense.category}
+                    value={editingExpense?.category || newExpense.category}
                     onValueChange={(value) =>
-                      setNewExpense({
-                        ...newExpense,
-                        category: value,
-                      })
+                      editingExpense
+                        ? setEditingExpense({
+                            ...editingExpense,
+                            category: value,
+                          })
+                        : setNewExpense({
+                            ...newExpense,
+                            category: value,
+                          })
                     }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={t("select_category")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {creditCategories.length > 0 ? (
-                        creditCategories.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: category.color }}
-                              />
-                              {category.name}
-                            </div>
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="default" disabled>
-                          {t("no_categories")}
+                      {creditCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: category.color }}
+                            />
+                            {category.name}
+                          </div>
                         </SelectItem>
-                      )}
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="creditCard">{t("credit_card")}</Label>
-                  <Select
-                    value={newExpense.creditCardId}
-                    onValueChange={(value) => {
-                      setNewExpense({
-                        ...newExpense,
-                        creditCardId: value,
-                      });
-                      
-                      // Show billing preview for selected card
-                      if (value) {
-                        const card = creditCards.find(c => c.id === value);
-                        if (card && newExpense.date) {
-                          const { billingMonthName } = getBillingCycleForPurchase(
-                            newExpense.date, 
-                            card.closingDay, 
-                            card.dueDay
-                          );
-                          toast({
-                            title: t("billing_preview"),
-                            description: `${t("will_be_billed_on")} ${billingMonthName}`,
-                          });
-                        }
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("choose_card")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {creditCards.length > 0 ? (
-                        creditCards.map((card) => (
-                          <SelectItem key={card.id} value={card.id}>
-                            <div className="flex items-center gap-2">
-                              <CreditCard className="h-4 w-4 text-muted-foreground" />
-                              {card.name} {card.lastFourDigits ? `(${card.lastFourDigits})` : ''}
-                            </div>
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="default" disabled>
-                          {t("no_credit_cards")}
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
                 <div className="grid gap-2">
                   <Label htmlFor="installments">{t("installments")}</Label>
                   <Input
                     id="installments"
                     type="number"
-                    placeholder="1"
                     min="1"
-                    value={newExpense.installments}
+                    step="1"
+                    value={editingExpense?.installments || newExpense.installments}
                     onChange={(e) =>
-                      setNewExpense({
-                        ...newExpense,
-                        installments: e.target.value,
-                      })
+                      editingExpense
+                        ? setEditingExpense({
+                            ...editingExpense,
+                            installments: e.target.value,
+                          })
+                        : setNewExpense({
+                            ...newExpense,
+                            installments: e.target.value,
+                          })
                     }
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="date">{t("date")}</Label>
+                  <Label htmlFor="date">{t("start_date")}</Label>
                   <div className="flex">
                     <Input
                       id="date"
                       type="date"
-                      value={newExpense.date}
-                      onChange={(e) => {
-                        const newDate = e.target.value;
-                        setNewExpense({
-                          ...newExpense,
-                          date: newDate,
-                        });
-                        
-                        // Show billing preview when date changes if card is selected
-                        if (newExpense.creditCardId) {
-                          const card = creditCards.find(c => c.id === newExpense.creditCardId);
-                          if (card && newDate) {
-                            const { billingMonthName } = getBillingCycleForPurchase(
-                              newDate, 
-                              card.closingDay, 
-                              card.dueDay
-                            );
-                            toast({
-                              title: t("billing_preview"),
-                              description: `${t("will_be_billed_on")} ${billingMonthName}`,
-                            });
-                          }
-                        }
-                      }}
+                      value={editingExpense?.date ? (typeof editingExpense.date === 'string' ? editingExpense.date.split('T')[0] : editingExpense.date) : newExpense.date}
+                      onChange={(e) =>
+                        editingExpense
+                          ? setEditingExpense({
+                              ...editingExpense,
+                              date: e.target.value,
+                            })
+                          : setNewExpense({
+                              ...newExpense,
+                              date: e.target.value,
+                            })
+                      }
                     />
                   </div>
                 </div>
-                
-                {/* Preview of billing information */}
-                {newExpense.creditCardId && newExpense.date && parseInt(newExpense.installments) > 0 && (
-                  <div className="mt-2 p-3 bg-muted rounded-md text-sm">
-                    <h4 className="font-medium mb-1">{t("billing_preview")}</h4>
-                    {(() => {
-                      const card = creditCards.find(c => c.id === newExpense.creditCardId);
-                      if (!card) return null;
-                      
-                      const installments = parseInt(newExpense.installments);
-                      if (isNaN(installments) || installments <= 0) return null;
-                      
-                      const billingMonths = getInstallmentBillingMonths(
-                        newExpense.date,
-                        installments,
-                        card.closingDay,
-                        card.dueDay
-                      );
-                      
-                      return (
-                        <div className="space-y-1">
-                          {billingMonths.map((billing, index) => (
-                            <div key={index} className="flex justify-between">
-                              <span>{t("installment")} {index + 1}:</span>
-                              <span className="font-medium">{billing.monthName}</span>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                <div className="grid gap-2">
+                  <Label htmlFor="creditCard">{t("credit_card")}</Label>
+                  <Select
+                    value={editingExpense?.creditCardId || newExpense.creditCardId}
+                    onValueChange={(value) =>
+                      editingExpense
+                        ? setEditingExpense({
+                            ...editingExpense,
+                            creditCardId: value,
+                          })
+                        : setNewExpense({
+                            ...newExpense,
+                            creditCardId: value,
+                          })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("choose_card")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {creditCards.map((card) => (
+                        <SelectItem key={card.id} value={card.id}>
+                          {card.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <DialogFooter>
-                <Button type="submit">{t("add")}</Button>
+                <Button variant="outline" type="button" onClick={() => {
+                  setIsDialogOpen(false);
+                  setEditingExpense(null);
+                }}>
+                  {t("cancel")}
+                </Button>
+                <Button type="submit">
+                  {editingExpense ? t("save") : t("add")}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -602,117 +608,128 @@ export default function CreditExpenses() {
         </Card>
       </div>
 
-      <Card className="animate-fade-in animation-delay-200">
+      <Card>
         <CardHeader>
-          <CardTitle>{t("credit_installments")}</CardTitle>
-          <CardDescription>{t("active_credit_plans")}</CardDescription>
+          <CardTitle>{t("all_credit_expenses")}</CardTitle>
+          <CardDescription>
+            {t("manage_credit_expenses")}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="space-y-4">
             <SearchInput
               value={searchTerm}
               onChange={setSearchTerm}
               placeholder={t("search_credit_expenses")}
             />
-            {filteredCreditExpenses.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("description")}</TableHead>
-                    <TableHead>{t("category")}</TableHead>
-                    <TableHead>{t("start_date")}</TableHead>
-                    <TableHead>{t("credit_card")}</TableHead>
-                    <TableHead>{t("first_installment")}</TableHead>
-                    <TableHead className="text-center">{t("progress")}</TableHead>
-                    <TableHead className="text-right">{t("monthly_payment")}</TableHead>
-                    <TableHead className="text-right">{t("total")}</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCreditExpenses.map((expense) => {
-                    const card = expense.creditCardId 
-                      ? creditCards.find(c => c.id === expense.creditCardId)
-                      : creditCards.length > 0 ? creditCards[0] : null;
+            <div className="rounded-md border">
+              {filteredCreditExpenses.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("description")}</TableHead>
+                      <TableHead>{t("category")}</TableHead>
+                      <TableHead>{t("installments")}</TableHead>
+                      <TableHead>{t("credit_card")}</TableHead>
+                      <TableHead>{t("first_installment")}</TableHead>
+                      <TableHead className="text-center">{t("progress")}</TableHead>
+                      <TableHead className="text-right">{t("monthly_payment")}</TableHead>
+                      <TableHead className="text-right">{t("total")}</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCreditExpenses.map((expense) => {
+                      const card = expense.creditCardId 
+                        ? creditCards.find(c => c.id === expense.creditCardId)
+                        : creditCards.length > 0 ? creditCards[0] : null;
+                        
+                      const billingInfo = card ? getBillingInfo(expense) : null;
                       
-                    const billingInfo = card ? getBillingInfo(expense) : null;
-                    
-                    return (
-                      <TableRow key={expense.id} className="group">
-                        <TableCell className="font-medium">
-                          {expense.description}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: getCategoryColor(expense.category) }}
+                      return (
+                        <TableRow key={expense.id}>
+                          <TableCell className="font-medium">
+                            {expense.description}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: getCategoryColor(expense.category) }}
+                              />
+                              {getCategoryName(expense.category)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {expense.currentInstallment}/{expense.installments}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
+                              {card ? card.name : "-"}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {billingInfo ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger className="cursor-help text-sm">
+                                    {billingInfo.billingMonthName}
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{t("first_installment_billed_on")} {billingInfo.billingMonthName}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <CreditInstallmentProgress 
+                              expense={expense} 
+                              dueDayOfMonth={creditCards.find(c => c.id === expense.creditCardId)?.dueDay || creditCards[0].dueDay} 
                             />
-                            {getCategoryName(expense.category)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="flex items-center gap-1">
-                          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                          {formatDate(expense.date, "dd/MM/yyyy", language)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
-                            {card ? card.name : "-"}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {billingInfo ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger className="cursor-help text-sm">
-                                  {billingInfo.billingMonthName}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{t("first_installment_billed_on")} {billingInfo.billingMonthName}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : "-"}
-                        </TableCell>
-                        <TableCell>
-                          <CreditInstallmentProgress 
-                            expense={expense} 
-                            dueDayOfMonth={creditCards.find(c => c.id === expense.creditCardId)?.dueDay || creditCards[0].dueDay} 
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(expense.amount / expense.installments, language)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(expense.amount, language)}
-                        </TableCell>
-                        <TableCell className="text-right p-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => handleDelete(expense.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="flex flex-col items-center justify-center p-8 text-center animate-fade-in">
-                <div className="rounded-full bg-muted p-3 mb-4">
-                  <CreditCard className="h-6 w-6 text-muted-foreground" />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(expense.amount / expense.installments, language)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(expense.amount, language)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(expense)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(expense.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center">
+                  <div className="rounded-full bg-muted p-3 mb-4">
+                    <Plus className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold">{t("no_credit_expenses")}</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm mt-1">
+                    {t("no_credit_expenses_description")}
+                  </p>
                 </div>
-                <h3 className="text-lg font-semibold">{t("no_credit_expenses")}</h3>
-                <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                  {t("no_credit_expenses_description")}
-                </p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -603,21 +603,26 @@ export default function Dashboard() {
                   >
                     <style>
                       {`
-                        .recharts-brush-slide {
-                          fill: var(--primary);
-                          fill-opacity: 0.2;
+                        .recharts-brush .recharts-brush-slide {
+                          fill: #dfdfe9 !important;
+                          fill-opacity: 1 !important;
+                          opacity: 1 !important;
                           cursor: grab;
                         }
-                        .recharts-brush-traveller {
-                          fill: var(--primary);
-                          stroke: var(--primary);
+                        .recharts-brush .recharts-brush-traveller {
+                          fill: #dfdfe9 !important;
+                          stroke: #dfdfe9 !important;
+                          fill-opacity: 1 !important;
+                          opacity: 1 !important;
                           stroke-width: 1px;
                           rx: 4;
                           cursor: ew-resize;
                         }
                         .recharts-brush-texts {
                           font-size: 12px;
-                          fill: var(--foreground);
+                          fill: #dfdfe9 !important;
+                          fill-opacity: 1 !important;
+                          opacity: 1 !important;
                         }
                       `}
                     </style>
@@ -808,21 +813,26 @@ export default function Dashboard() {
                     >
                       <style>
                         {`
-                          .recharts-brush-slide {
-                            fill: var(--primary);
-                            fill-opacity: 0.2;
+                          .recharts-brush .recharts-brush-slide {
+                            fill: #dfdfe9 !important;
+                            fill-opacity: 1 !important;
+                            opacity: 1 !important;
                             cursor: grab;
                           }
-                          .recharts-brush-traveller {
-                            fill: var(--primary);
-                            stroke: var(--primary);
+                          .recharts-brush .recharts-brush-traveller {
+                            fill: #dfdfe9 !important;
+                            stroke: #dfdfe9 !important;
+                            fill-opacity: 1 !important;
+                            opacity: 1 !important;
                             stroke-width: 1px;
                             rx: 4;
                             cursor: ew-resize;
                           }
                           .recharts-brush-texts {
                             font-size: 12px;
-                            fill: var(--foreground);
+                            fill: #dfdfe9 !important;
+                            fill-opacity: 1 !important;
+                            opacity: 1 !important;
                           }
                         `}
                       </style>

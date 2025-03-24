@@ -198,7 +198,8 @@ export type TranslationKey =
   | "search_subscriptions"
   | "search_credit_expenses"
   | "search_cash_expenses"
-  | "search_income";
+  | "search_income"
+  | "search_categories";
 
 export type LanguageCode = "pt-BR" | "en-US" | "es-ES" | "fr-FR" | "de-DE";
 
@@ -413,7 +414,8 @@ export const ptBR_translations: Translation = {
   search_subscriptions: "Pesquisar assinaturas...",
   search_credit_expenses: "Pesquisar despesas no cartão...",
   search_cash_expenses: "Pesquisar despesas em dinheiro...",
-  search_income: "Pesquisar receitas..."
+  search_income: "Pesquisar receitas...",
+  search_categories: "Pesquisar categorias..."
 };
 
 // English translations
@@ -614,7 +616,8 @@ export const enUS_translations: Translation = {
   search_subscriptions: "Search subscriptions...",
   search_credit_expenses: "Search credit expenses...",
   search_cash_expenses: "Search cash expenses...",
-  search_income: "Search income..."
+  search_income: "Search income...",
+  search_categories: "Search categories..."
 };
 
 // Spanish translations
@@ -774,5 +777,6 @@ export const esES_translations: Translation = {
   search_subscriptions: "Buscar suscripciones...",
   search_credit_expenses: "Buscar gastos de crédito...",
   search_cash_expenses: "Buscar gastos en efectivo...",
-  search_income: "Buscar ingresos..."
+  search_income: "Buscar ingresos...",
+  search_categories: "Buscar categorías..."
 };

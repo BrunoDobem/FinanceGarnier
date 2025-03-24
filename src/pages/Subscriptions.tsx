@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarIcon, Plus, Trash2 } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
   Card, 
@@ -44,11 +44,12 @@ import { SearchInput } from "@/components/SearchInput";
 
 export default function Subscriptions() {
   const { t, language } = useLanguage();
-  const { categories, subscriptions, addTransaction, deleteTransaction } = useFinance();
+  const { categories, subscriptions, addTransaction, updateTransaction, deleteTransaction } = useFinance();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
   const [newSubscription, setNewSubscription] = useState({
     description: "",
     amount: "",
@@ -60,44 +61,66 @@ export default function Subscriptions() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newSubscription.description || !newSubscription.amount || !newSubscription.category) {
+    const form = editingSubscription ? editingSubscription : newSubscription;
+    
+    if (!form.description || !form.amount || !form.category) {
       toast({
-        title: "Missing fields",
-        description: "Please fill in all required fields",
+        title: t("error"),
+        description: t("please_fill_required_fields"),
         variant: "destructive",
       });
       return;
     }
 
-    const amount = parseFloat(newSubscription.amount);
+    const amount = typeof form.amount === 'string' ? parseFloat(form.amount) : form.amount;
     
     if (isNaN(amount) || amount <= 0) {
       toast({
-        title: "Invalid amount",
-        description: "Please enter a valid amount",
+        title: t("error"),
+        description: t("invalid_amount"),
         variant: "destructive",
       });
       return;
     }
 
-    // Create a new subscription
-    const subscription: Omit<Subscription, "id" | "createdAt" | "updatedAt"> = {
-      type: "subscription",
-      description: newSubscription.description,
-      amount: amount,
-      category: newSubscription.category,
-      date: newSubscription.date,
-      recurring: true,
-      billingCycle: newSubscription.billingCycle,
-      nextBillingDate: newSubscription.date, // Would calculate next billing date based on cycle
-    };
+    if (editingSubscription) {
+      // Update existing subscription
+      const updatedSubscription: Subscription = {
+        ...editingSubscription,
+        description: form.description,
+        amount: amount,
+        category: form.category,
+        date: form.date,
+        billingCycle: form.billingCycle,
+        nextBillingDate: form.date,
+      };
 
-    addTransaction(subscription);
-    
-    toast({
-      title: "Subscription added",
-      description: `Added ${subscription.description} to your subscriptions`,
-    });
+      updateTransaction(updatedSubscription);
+      
+      toast({
+        title: t("success"),
+        description: t("transaction_updated"),
+      });
+    } else {
+      // Create a new subscription
+      const subscription: Omit<Subscription, "id" | "createdAt" | "updatedAt"> = {
+        type: "subscription",
+        description: form.description,
+        amount: amount,
+        category: form.category,
+        date: form.date,
+        recurring: true,
+        billingCycle: form.billingCycle,
+        nextBillingDate: form.date,
+      };
+
+      addTransaction(subscription);
+      
+      toast({
+        title: t("success"),
+        description: t("subscription_added"),
+      });
+    }
     
     // Reset form and close dialog
     setNewSubscription({
@@ -107,7 +130,16 @@ export default function Subscriptions() {
       date: new Date().toISOString().split("T")[0],
       billingCycle: "monthly",
     });
+    setEditingSubscription(null);
     setIsDialogOpen(false);
+  };
+
+  const handleEdit = (subscription: Subscription) => {
+    setEditingSubscription({
+      ...subscription,
+      amount: subscription.amount.toString(),
+    });
+    setIsDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
@@ -151,64 +183,95 @@ export default function Subscriptions() {
             Manage your recurring monthly payments
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setEditingSubscription(null);
+            setNewSubscription({
+              description: "",
+              amount: "",
+              category: "",
+              date: new Date().toISOString().split("T")[0],
+              billingCycle: "monthly",
+            });
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="gap-2">
-              <Plus className="h-4 w-4" /> Add Subscription
+              <Plus className="h-4 w-4" /> {t("add_subscription")}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <form onSubmit={handleSubmit}>
               <DialogHeader>
-                <DialogTitle>Add New Subscription</DialogTitle>
+                <DialogTitle>
+                  {editingSubscription ? t("edit") : t("add_subscription")}
+                </DialogTitle>
                 <DialogDescription>
-                  Add a new recurring monthly payment to track.
+                  {editingSubscription 
+                    ? t("edit_category_description")
+                    : t("add_category_description")}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">{t("description")}</Label>
                   <Input
                     id="description"
                     placeholder="Netflix, Spotify, etc."
-                    value={newSubscription.description}
+                    value={editingSubscription?.description || newSubscription.description}
                     onChange={(e) =>
-                      setNewSubscription({
-                        ...newSubscription,
-                        description: e.target.value,
-                      })
+                      editingSubscription
+                        ? setEditingSubscription({
+                            ...editingSubscription,
+                            description: e.target.value,
+                          })
+                        : setNewSubscription({
+                            ...newSubscription,
+                            description: e.target.value,
+                          })
                     }
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="amount">Amount</Label>
+                  <Label htmlFor="amount">{t("amount")}</Label>
                   <Input
                     id="amount"
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={newSubscription.amount}
+                    value={editingSubscription?.amount || newSubscription.amount}
                     onChange={(e) =>
-                      setNewSubscription({
-                        ...newSubscription,
-                        amount: e.target.value,
-                      })
+                      editingSubscription
+                        ? setEditingSubscription({
+                            ...editingSubscription,
+                            amount: e.target.value,
+                          })
+                        : setNewSubscription({
+                            ...newSubscription,
+                            amount: e.target.value,
+                          })
                     }
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category">{t("category")}</Label>
                   <Select
-                    value={newSubscription.category}
+                    value={editingSubscription?.category || newSubscription.category}
                     onValueChange={(value) =>
-                      setNewSubscription({
-                        ...newSubscription,
-                        category: value,
-                      })
+                      editingSubscription
+                        ? setEditingSubscription({
+                            ...editingSubscription,
+                            category: value,
+                          })
+                        : setNewSubscription({
+                            ...newSubscription,
+                            category: value,
+                          })
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a category" />
+                      <SelectValue placeholder={t("select_category")} />
                     </SelectTrigger>
                     <SelectContent>
                       {subscriptionCategories.map((category) => (
@@ -226,46 +289,64 @@ export default function Subscriptions() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="date">First Billing Date</Label>
+                  <Label htmlFor="date">{t("first_installment")}</Label>
                   <div className="flex">
                     <Input
                       id="date"
                       type="date"
-                      value={newSubscription.date}
+                      value={editingSubscription?.date ? (typeof editingSubscription.date === 'string' ? editingSubscription.date.split('T')[0] : editingSubscription.date) : newSubscription.date}
                       onChange={(e) =>
-                        setNewSubscription({
-                          ...newSubscription,
-                          date: e.target.value,
-                        })
+                        editingSubscription
+                          ? setEditingSubscription({
+                              ...editingSubscription,
+                              date: e.target.value,
+                            })
+                          : setNewSubscription({
+                              ...newSubscription,
+                              date: e.target.value,
+                            })
                       }
                     />
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="billingCycle">Billing Cycle</Label>
+                  <Label htmlFor="billingCycle">{t("billing_cycle")}</Label>
                   <Select
-                    value={newSubscription.billingCycle}
+                    value={editingSubscription?.billingCycle || newSubscription.billingCycle}
                     onValueChange={(value: "weekly" | "monthly" | "quarterly" | "yearly") =>
-                      setNewSubscription({
-                        ...newSubscription,
-                        billingCycle: value,
-                      })
+                      editingSubscription
+                        ? setEditingSubscription({
+                            ...editingSubscription,
+                            billingCycle: value,
+                          })
+                        : setNewSubscription({
+                            ...newSubscription,
+                            billingCycle: value,
+                          })
                     }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="quarterly">Quarterly</SelectItem>
-                      <SelectItem value="yearly">Yearly</SelectItem>
+                      <SelectItem value="weekly">{t("weekly")}</SelectItem>
+                      <SelectItem value="monthly">{t("monthly")}</SelectItem>
+                      <SelectItem value="quarterly">{t("quarterly")}</SelectItem>
+                      <SelectItem value="yearly">{t("yearly")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Add Subscription</Button>
+                <Button variant="outline" type="button" onClick={() => {
+                  setIsDialogOpen(false);
+                  setEditingSubscription(null);
+                }}>
+                  {t("cancel")}
+                </Button>
+                <Button type="submit">
+                  {editingSubscription ? t("save") : t("add")}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -307,16 +388,17 @@ export default function Subscriptions() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Description</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Next Payment</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>{t("description")}</TableHead>
+                        <TableHead>{t("category")}</TableHead>
+                        <TableHead>{t("billing_cycle")}</TableHead>
+                        <TableHead>{t("next_payment")}</TableHead>
+                        <TableHead className="text-right">{t("amount")}</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredSubscriptions.map((subscription) => (
-                        <TableRow key={subscription.id} className="group">
+                        <TableRow key={subscription.id}>
                           <TableCell className="font-medium">
                             {subscription.description}
                           </TableCell>
@@ -329,22 +411,33 @@ export default function Subscriptions() {
                               {getCategoryName(subscription.category)}
                             </div>
                           </TableCell>
+                          <TableCell className="capitalize">
+                            {t(subscription.billingCycle)}
+                          </TableCell>
                           <TableCell className="flex items-center gap-1">
                             <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
                             {formatDate(subscription.nextBillingDate, "dd/MM/yyyy", language)}
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right font-medium">
                             {formatCurrency(subscription.amount, language)}
                           </TableCell>
-                          <TableCell className="text-right p-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => handleDelete(subscription.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                            </Button>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(subscription)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(subscription.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
