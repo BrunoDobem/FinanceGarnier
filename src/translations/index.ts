@@ -134,7 +134,6 @@ export type TranslationKey =
   | "user_preferences"
   | "currency"
   | "categories"
-  | "security"
   | "account"
   | "language_changed"
   | "theme_changed"
@@ -165,7 +164,6 @@ export type TranslationKey =
   | "add_category_description"
   | "type"
   | "no_categories_description"
-  | "manage_security"
   | "add_credit_card"
   | "edit_credit_card"
   | "card_name"
@@ -183,7 +181,6 @@ export type TranslationKey =
   | "card_name_placeholder"
   | "no_credit_cards_description"
   | "manage_categories"
-  | "security_settings"
   | "appearance_settings"
   | "manage_settings"
   | "configure_appearance"
@@ -348,7 +345,6 @@ export const ptBR_translations: Translation = {
   user_preferences: "Preferências do Usuário",
   currency: "Moeda",
   categories: "Categorias",
-  security: "Segurança",
   account: "Conta",
   language_changed: "Idioma alterado com sucesso",
   theme_changed: "Tema alterado com sucesso",
@@ -379,7 +375,6 @@ export const ptBR_translations: Translation = {
   add_category_description: "Adicione uma nova categoria para classificar suas transações",
   type: "Tipo",
   no_categories_description: "Adicione categorias para organizar suas finanças",
-  manage_security: "Gerenciar Segurança",
   add_credit_card: "Adicionar Cartão",
   edit_credit_card: "Editar Cartão",
   card_name: "Nome do Cartão",
@@ -397,7 +392,6 @@ export const ptBR_translations: Translation = {
   card_name_placeholder: "Ex: Nubank, Itaú Platinum",
   no_credit_cards_description: "Adicione cartões para controlar seus gastos",
   manage_categories: "Gerenciar Categorias",
-  security_settings: "Configurações de Segurança",
   appearance_settings: "Configurações de Aparência",
   manage_settings: "Gerencie suas preferências do aplicativo",
   configure_appearance: "Configure a aparência do aplicativo",
@@ -548,7 +542,6 @@ export const enUS_translations: Translation = {
   user_preferences: "User Preferences",
   currency: "Currency",
   categories: "Categories",
-  security: "Security",
   account: "Account",
   language_changed: "Language changed successfully",
   theme_changed: "Theme changed successfully",
@@ -579,7 +572,6 @@ export const enUS_translations: Translation = {
   add_category_description: "Add a new category to classify your transactions",
   type: "Type",
   no_categories_description: "Add categories to organize your finances",
-  manage_security: "Manage Security",
   add_credit_card: "Add Credit Card",
   edit_credit_card: "Edit Credit Card",
   card_name: "Card Name",
@@ -597,7 +589,6 @@ export const enUS_translations: Translation = {
   card_name_placeholder: "Ex: Visa, Mastercard Gold",
   no_credit_cards_description: "Add cards to track your expenses",
   manage_categories: "Manage Categories",
-  security_settings: "Security Settings",
   appearance_settings: "Appearance Settings",
   manage_settings: "Manage your app preferences",
   configure_appearance: "Configure the app appearance",
@@ -748,7 +739,6 @@ export const esES_translations: Translation = {
   user_preferences: "Preferencias del Usuario",
   currency: "Moneda",
   categories: "Categorías",
-  security: "Seguridad",
   account: "Cuenta",
   language_changed: "Idioma cambiado con éxito",
   theme_changed: "Tema cambiado con éxito",
