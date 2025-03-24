@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
-import { InvoiceCalculator, Purchase, Installment } from '../lib/InvoiceCalculator';
+import { InvoiceCalculator } from '@/lib/InvoiceCalculator';
 import { InvoiceStatus } from './InvoiceStatus';
+
+interface Purchase {
+  date: Date;
+  amount: number;
+  installments: number;
+  paidInstallments: number[];
+  unpaidInstallments?: number[];
+}
 
 interface PurchaseManagerProps {
   dueDayOfMonth: number;
@@ -23,7 +31,8 @@ export const PurchaseManager: React.FC<PurchaseManagerProps> = ({ dueDayOfMonth 
       date: new Date(newPurchase.date),
       amount: newPurchase.amount,
       installments: newPurchase.installments,
-      paidInstallments: []
+      paidInstallments: [],
+      unpaidInstallments: []
     };
 
     setPurchases([...purchases, purchase]);
@@ -50,13 +59,29 @@ export const PurchaseManager: React.FC<PurchaseManagerProps> = ({ dueDayOfMonth 
     const updatedPurchases = purchases.map(p => {
       if (p === purchase) {
         const paidInstallments = p.paidInstallments || [];
-        const newPaidInstallments = paidInstallments.includes(installmentNumber)
-          ? paidInstallments.filter(num => num !== installmentNumber)
-          : [...paidInstallments, installmentNumber].sort((a, b) => a - b);
+        const unpaidInstallments = p.unpaidInstallments || [];
+        
+        let newPaidInstallments: number[];
+        let newUnpaidInstallments: number[];
+
+        if (paidInstallments.includes(installmentNumber)) {
+          // Se estava paga, move para não paga
+          newPaidInstallments = paidInstallments.filter(num => num !== installmentNumber);
+          newUnpaidInstallments = [...unpaidInstallments, installmentNumber].sort((a, b) => a - b);
+        } else if (unpaidInstallments.includes(installmentNumber)) {
+          // Se estava marcada como não paga, remove dessa lista
+          newPaidInstallments = paidInstallments;
+          newUnpaidInstallments = unpaidInstallments.filter(num => num !== installmentNumber);
+        } else {
+          // Se não estava em nenhuma lista, adiciona como paga
+          newPaidInstallments = [...paidInstallments, installmentNumber].sort((a, b) => a - b);
+          newUnpaidInstallments = unpaidInstallments;
+        }
 
         const updatedPurchase = {
           ...p,
-          paidInstallments: newPaidInstallments
+          paidInstallments: newPaidInstallments,
+          unpaidInstallments: newUnpaidInstallments
         };
 
         setSelectedPurchase(updatedPurchase);

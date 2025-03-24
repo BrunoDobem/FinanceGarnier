@@ -31,6 +31,7 @@ export interface CreditExpense extends Transaction {
   currentInstallment: number;
   creditCardId?: string;
   paidInstallments?: number[];
+  unpaidInstallments?: number[];
   billingMonth?: string; // Optional field to store which month this expense is billed
 }
 

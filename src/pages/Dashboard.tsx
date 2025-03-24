@@ -160,34 +160,39 @@ export default function Dashboard() {
   const futureSubscriptionExpenses = calculateSubscriptionExpenses(finance.subscriptions, monthsAhead);
   const futureCashExpenses = calculateCashExpenses(finance.cashExpenses, monthsAhead);
   
+  // Calcular todos os gastos (incluindo passados) para o gráfico
+  const allCreditExpenses = calculateFutureCreditExpenses(finance.creditExpenses, monthsAhead * 2, true);
+  const allSubscriptionExpenses = calculateSubscriptionExpenses(finance.subscriptions, monthsAhead * 2, true);
+  const allCashExpenses = calculateCashExpenses(finance.cashExpenses, monthsAhead * 2, true);
+  
   // Calcular renda total
   const totalIncome = finance.incomes.reduce(
     (total, income) => total + income.amount,
     0
   );
 
-  // Gerar dados mensais
+  // Gerar dados mensais para o gráfico de Renda vs Despesas
   const monthlyData = generateMonthlyData(
     totalIncome,
-    futureCreditExpenses,
-    futureSubscriptionExpenses,
-    futureCashExpenses,
-    monthsAhead
+    allCreditExpenses,
+    allSubscriptionExpenses,
+    allCashExpenses,
+    monthsAhead * 2 // Dobra o período para mostrar passado e futuro
   );
 
-  // Calcular métricas financeiras
+  // Calcular métricas financeiras (usando apenas gastos do mês atual)
   const metrics = calculateFinancialMetrics(
     totalIncome,
-    futureCreditExpenses,
-    futureSubscriptionExpenses,
-    futureCashExpenses
+    allCreditExpenses, // Usa todos os gastos para calcular métricas atuais
+    allSubscriptionExpenses,
+    allCashExpenses
   );
 
-  // Dados para o gráfico de pizza
+  // Dados para o gráfico de pizza (usando apenas gastos futuros)
   const expenseBreakdownData = [
-    { name: "Assinaturas", value: Object.values(futureSubscriptionExpenses).reduce((a, b) => a + b, 0) },
-    { name: "Gastos com Crédito", value: Object.values(futureCreditExpenses).reduce((a, b) => a + b, 0) },
-    { name: "Gastos em Dinheiro", value: Object.values(futureCashExpenses).reduce((a, b) => a + b, 0) },
+    { name: "Assinaturas", value: Object.values(allSubscriptionExpenses).reduce((a, b) => a + b, 0) },
+    { name: "Gastos com Crédito", value: Object.values(allCreditExpenses).reduce((a, b) => a + b, 0) },
+    { name: "Gastos em Dinheiro", value: Object.values(allCashExpenses).reduce((a, b) => a + b, 0) },
   ];
 
   // Combine todas as despesas em um único array
@@ -370,7 +375,7 @@ export default function Dashboard() {
                     }}
                   />
                   <Bar dataKey="income" name="Renda" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="expenses" name="Despesas" fill={CHART_COLORS[1]} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="totalExpenses" name="Despesas" fill={CHART_COLORS[1]} radius={[4, 4, 0, 0]} />
                 </RechartsBarChart>
               </ResponsiveContainer>
             </CardContent>

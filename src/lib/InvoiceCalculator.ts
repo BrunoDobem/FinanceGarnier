@@ -10,6 +10,7 @@ export interface Purchase {
   amount: number;
   installments: number;
   paidInstallments?: number[];
+  unpaidInstallments?: number[];
 }
 
 export interface InvoiceInfo {
@@ -22,6 +23,7 @@ export interface InvoiceInfo {
   totalInstallments?: number;
   paidInstallments?: number[];
   installmentDetails?: Installment[];
+  firstDueDate: Date;
 }
 
 export class InvoiceCalculator {
@@ -32,45 +34,68 @@ export class InvoiceCalculator {
   }
 
   private normalizeDate(date: Date): Date {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
 
-  private getNextDueDate(date: Date): Date {
-    const nextDueDate = new Date(date.getFullYear(), date.getMonth(), this.dueDayOfMonth);
-    
-    if (date.getDate() > this.dueDayOfMonth) {
-      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-    }
-    
-    return this.normalizeDate(nextDueDate);
+  private getMonthsDifference(date1: Date, date2: Date): number {
+    const yearDiff = date2.getFullYear() - date1.getFullYear();
+    const monthDiff = date2.getMonth() - date1.getMonth();
+    return yearDiff * 12 + monthDiff;
   }
 
-  private getPreviousDueDate(date: Date): Date {
-    const previousDueDate = new Date(date.getFullYear(), date.getMonth(), this.dueDayOfMonth);
+  public getFirstInstallmentDueDate(purchaseDate: Date): Date {
+    const normalizedPurchaseDate = this.normalizeDate(purchaseDate);
+    let dueDate = new Date(normalizedPurchaseDate);
     
-    if (date.getDate() > this.dueDayOfMonth) {
-      return this.normalizeDate(previousDueDate);
+    // Se a compra foi feita depois do dia de vencimento, a primeira parcela será no próximo mês
+    if (normalizedPurchaseDate.getDate() >= this.dueDayOfMonth) {
+      dueDate.setMonth(dueDate.getMonth() + 1);
     }
     
-    previousDueDate.setMonth(previousDueDate.getMonth() - 1);
-    return this.normalizeDate(previousDueDate);
+    dueDate.setDate(this.dueDayOfMonth);
+    return dueDate;
   }
 
-  private getMonthsDifference(startDate: Date, endDate: Date): number {
-    // Normaliza as datas para evitar problemas com horas/minutos/segundos
-    const start = this.normalizeDate(startDate);
-    const end = this.normalizeDate(endDate);
+  public getInvoiceInfo(referenceDate: Date, purchase?: Purchase) {
+    const today = this.normalizeDate(referenceDate);
+    
+    // Encontra a data de vencimento atual
+    let currentDueDate = new Date(today.getFullYear(), today.getMonth(), this.dueDayOfMonth);
+    if (today.getDate() >= this.dueDayOfMonth) {
+      currentDueDate.setMonth(currentDueDate.getMonth() + 1);
+    }
+    
+    // Próximo vencimento é sempre um mês depois
+    const nextDueDate = new Date(currentDueDate);
+    nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+    
+    // Calcula o progresso do ciclo atual
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const daysPassed = today.getDate();
+    const cycleProgress = (daysPassed / daysInMonth) * 100;
 
-    // Calcula a diferença em meses
-    let months = (end.getFullYear() - start.getFullYear()) * 12 + 
-                (end.getMonth() - start.getMonth());
-
-    // Ajusta baseado no dia do vencimento
-    if (end.getDate() < this.dueDayOfMonth && start.getDate() <= this.dueDayOfMonth) {
-      months--;
+    // Se não há compra selecionada, retorna apenas as informações do ciclo
+    if (!purchase) {
+      return {
+        currentDueDate,
+        nextDueDate,
+        cycleProgress
+      };
     }
 
-    return Math.max(0, months);
+    // Calcula as informações da compra
+    const firstDueDate = this.getFirstInstallmentDueDate(purchase.date);
+    const installmentDetails = this.calculateInstallments(purchase);
+    const currentInstallment = this.getCurrentInstallmentNumber(purchase);
+
+    return {
+      currentDueDate,
+      nextDueDate,
+      cycleProgress,
+      firstDueDate,
+      currentInstallment,
+      installmentDetails
+    };
   }
 
   private getCurrentInstallmentNumber(purchase: Purchase): number {
@@ -92,58 +117,6 @@ export class InvoiceCalculator {
     return Math.min(Math.max(1, currentInstallment), purchase.installments);
   }
 
-  public getInvoiceInfo(currentDate: Date, purchase?: Purchase): InvoiceInfo {
-    const today = this.normalizeDate(new Date());
-    const currentDueDate = this.getPreviousDueDate(currentDate);
-    const nextDueDate = this.getNextDueDate(currentDate);
-
-    const daysSinceLastDueDate = Math.floor(
-      (currentDate.getTime() - currentDueDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    const daysUntilNextDueDate = Math.floor(
-      (nextDueDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    const totalDaysInCycle = Math.floor(
-      (nextDueDate.getTime() - currentDueDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    const cycleProgress = (daysSinceLastDueDate / totalDaysInCycle) * 100;
-
-    const result: InvoiceInfo = {
-      currentDueDate,
-      nextDueDate,
-      cycleProgress,
-      daysUntilNextDueDate,
-      daysSinceLastDueDate
-    };
-
-    if (purchase) {
-      const installmentInfo = this.calculateInstallments(purchase);
-      const currentInstallment = this.getCurrentInstallmentNumber(purchase);
-
-      result.currentInstallment = currentInstallment;
-      result.totalInstallments = purchase.installments;
-      result.paidInstallments = purchase.paidInstallments;
-      result.installmentDetails = installmentInfo;
-    }
-
-    return result;
-  }
-
-  public getFirstInstallmentDueDate(purchaseDate: Date): Date {
-    const normalizedDate = this.normalizeDate(purchaseDate);
-    const firstDueDate = new Date(normalizedDate.getFullYear(), normalizedDate.getMonth(), this.dueDayOfMonth);
-    
-    // Se a compra foi feita depois do vencimento, a primeira parcela cai no próximo mês
-    if (normalizedDate.getDate() > this.dueDayOfMonth) {
-      firstDueDate.setMonth(firstDueDate.getMonth() + 1);
-    }
-    
-    return this.normalizeDate(firstDueDate);
-  }
-
   public calculateInstallments(purchase: Purchase): Installment[] {
     const firstDueDate = this.getFirstInstallmentDueDate(purchase.date);
     const installmentAmount = purchase.amount / purchase.installments;
@@ -157,13 +130,15 @@ export class InvoiceCalculator {
       
       // Uma parcela é considerada paga se:
       // 1. Está no array de parcelas pagas, OU
-      // 2. A data de vencimento já passou
+      // 2. A data de vencimento já passou E não está no array de parcelas não pagas
       const isPastDue = this.normalizeDate(dueDate) < today;
+      const isPaid = paidInstallments.includes(installmentNumber) || 
+                    (isPastDue && !purchase.unpaidInstallments?.includes(installmentNumber));
       
       return {
         dueDate: this.normalizeDate(dueDate),
         amount: installmentAmount,
-        isPaid: paidInstallments.includes(installmentNumber) || isPastDue,
+        isPaid,
         installmentNumber
       };
     });
