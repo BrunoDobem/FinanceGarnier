@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -10,11 +9,11 @@ export function Layout() {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen flex w-full">
+    <div className="min-h-screen flex w-full overflow-x-hidden">
       <AppSidebar isCollapsed={isCollapsed} />
       
-      <main className="flex-1 flex flex-col">
-        <div className="hidden md:flex p-1 mx-4 my-1">
+      <main className="flex-1 flex flex-col w-full">
+        <div className="hidden md:flex p-1 mx-2 lg:mx-4 my-1">
           <Button
             variant="ghost"
             size="icon"
@@ -34,12 +33,12 @@ export function Layout() {
         
         <div
           className={cn(
-            "flex-1 transition-all duration-300 ease-in-out",
+            "flex-1 transition-all duration-300 ease-in-out px-2 sm:px-4",
             isCollapsed ? "md:ml-[70px]" : "md:ml-[240px]",
             "md:ml-0"
           )}
         >
-          <div className="container mx-auto p-4 md:p-6 max-w-7xl animate-fade-in">
+          <div className="container mx-auto p-2 sm:p-4 md:p-6 max-w-7xl animate-fade-in">
             <Outlet />
           </div>
         </div>

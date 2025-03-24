@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { CheckCircle2, GlobeIcon, Lock, Moon, PlusCircle, Sun, Trash2, UserCog } from "lucide-react";
+import { CheckCircle2, GlobeIcon, Moon, PlusCircle, Sun, Trash2, UserCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -35,42 +34,6 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const [currency, setCurrency] = useState("BRL");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
-  const handleSavePassword = () => {
-    if (!password) {
-      toast({
-        title: "Error",
-        description: "Please enter a password",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // In a real app, this would save the password securely
-    toast({
-      title: "Success",
-      description: (
-        <div className="flex items-center">
-          <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
-          <span>Password updated successfully</span>
-        </div>
-      ),
-    });
-
-    setPassword("");
-    setConfirmPassword("");
-  };
 
   const handleExportData = () => {
     toast({
@@ -216,54 +179,6 @@ export default function Settings() {
           <CategoryManager />
           <CreditCardManager />
         </div>
-
-        <Card className="animate-fade-in animation-delay-100">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Lock className="h-5 w-5" />
-              <span>{t("security")}</span>
-            </CardTitle>
-            <CardDescription>
-              {t("manage_security")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="password">{t("new_password")}</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="confirmPassword">{t("confirm_password")}</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleSavePassword}>{t("update_password")}</Button>
-            </div>
-
-            <div className="space-y-4 pt-4">
-              <h3 className="text-lg font-medium">{t("account_data")}</h3>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={handleExportData}>
-                  {t("export_data")}
-                </Button>
-                <Button variant="destructive" onClick={handleDeleteAccount}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  {t("delete_account")}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

@@ -1,4 +1,3 @@
-
 import { 
   BarChart4, 
   CreditCard, 
@@ -77,11 +76,11 @@ export function AppSidebar({ isCollapsed, className }: SidebarProps) {
 
   const SidebarContent = (
     <div className={cn("h-full flex flex-col", className)}>
-      <div className="py-4">
-        <div className="px-3 py-2">
+      <div className="py-2 md:py-4">
+        <div className="px-2 md:px-3 py-2">
           <div className={cn("flex items-center", isCollapsed ? "justify-center" : "justify-between")}>
             {!isCollapsed && (
-              <Link to="/" className="flex items-center gap-2 font-semibold text-xl animate-fade-in">
+              <Link to="/" className="flex items-center gap-2 font-semibold text-lg md:text-xl animate-fade-in">
                 <span className="text-primary">Garnier</span>
                 <span>Finance</span>
               </Link>
@@ -102,7 +101,7 @@ export function AppSidebar({ isCollapsed, className }: SidebarProps) {
               to={item.href}
               onClick={() => setIsOpen(false)}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:text-primary",
+                "flex items-center gap-3 rounded-lg px-2 md:px-3 py-2 text-sm transition-all hover:text-primary",
                 isActive(item.href)
                   ? "bg-primary/10 text-primary font-medium"
                   : "text-muted-foreground",
@@ -110,14 +109,14 @@ export function AppSidebar({ isCollapsed, className }: SidebarProps) {
               )}
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <item.icon className={cn("h-5 w-5", isActive(item.href) ? "text-primary" : "text-muted-foreground")} />
-              {!isCollapsed && <span>{item.label}</span>}
+              <item.icon className={cn("h-4 w-4 md:h-5 md:w-5", isActive(item.href) ? "text-primary" : "text-muted-foreground")} />
+              {!isCollapsed && <span className="truncate">{item.label}</span>}
             </Link>
           ))}
         </nav>
       </ScrollArea>
-      <div className="mt-auto p-4 border-t border-border/40">
-        <div className={cn("flex", isCollapsed ? "justify-center" : "justify-between")}>
+      <div className="mt-auto p-2 md:p-4 border-t border-border/40">
+        <div className={cn("flex items-center", isCollapsed ? "justify-center" : "justify-between gap-2")}>
           {!isCollapsed && (
             <div className="flex items-center gap-2">
               <ThemeToggle />
@@ -127,7 +126,7 @@ export function AppSidebar({ isCollapsed, className }: SidebarProps) {
           <Button 
             variant="ghost" 
             size="icon"
-            className={cn("h-9 w-9 rounded-full", isCollapsed && "mt-4")}
+            className={cn("h-8 w-8 md:h-9 md:w-9 rounded-full", isCollapsed && "mt-2 md:mt-4")}
           >
             <LogOut className="h-4 w-4" />
             <span className="sr-only">Logout</span>
@@ -142,7 +141,7 @@ export function AppSidebar({ isCollapsed, className }: SidebarProps) {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden border-r border-border/40 bg-background h-screen sticky top-0 z-30 md:flex md:flex-col",
+          "hidden border-r border-border/40 bg-background h-screen sticky top-0 z-30 md:flex md:flex-col transition-all duration-300",
           isCollapsed ? "w-[70px]" : "w-[240px]"
         )}
       >
@@ -155,12 +154,12 @@ export function AppSidebar({ isCollapsed, className }: SidebarProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden fixed bottom-4 right-4 z-40 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg"
+            className="md:hidden fixed bottom-4 right-4 z-40 h-12 w-12 rounded-full bg-primary text-primary-foreground shadow-lg hover:scale-105 transition-transform"
           >
             <Menu className="h-6 w-6" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="p-0 w-[240px]">
+        <SheetContent side="left" className="p-0 w-[280px] sm:w-[320px]">
           {SidebarContent}
         </SheetContent>
       </Sheet>
