@@ -194,7 +194,11 @@ export type TranslationKey =
   | "first_installment_on"
   | "first_installment_billed_on"
   | "billing_cycle_progress"
-  | "add_credit_card_to_see_cycle";
+  | "add_credit_card_to_see_cycle"
+  | "search_subscriptions"
+  | "search_credit_expenses"
+  | "search_cash_expenses"
+  | "search_income";
 
 export type LanguageCode = "pt-BR" | "en-US" | "es-ES" | "fr-FR" | "de-DE";
 
@@ -405,7 +409,11 @@ export const ptBR_translations: Translation = {
   first_installment_on: "Primeira parcela em",
   first_installment_billed_on: "Primeira parcela cobrada em",
   billing_cycle_progress: "Progresso do ciclo de faturamento",
-  add_credit_card_to_see_cycle: "Adicione um cartão para ver o ciclo de faturamento"
+  add_credit_card_to_see_cycle: "Adicione um cartão para ver o ciclo de faturamento",
+  search_subscriptions: "Pesquisar assinaturas...",
+  search_credit_expenses: "Pesquisar despesas no cartão...",
+  search_cash_expenses: "Pesquisar despesas em dinheiro...",
+  search_income: "Pesquisar receitas..."
 };
 
 // English translations
@@ -602,7 +610,11 @@ export const enUS_translations: Translation = {
   first_installment_on: "First installment on",
   first_installment_billed_on: "First installment billed on",
   billing_cycle_progress: "Billing cycle progress",
-  add_credit_card_to_see_cycle: "Add a credit card to see billing cycle"
+  add_credit_card_to_see_cycle: "Add a credit card to see billing cycle",
+  search_subscriptions: "Search subscriptions...",
+  search_credit_expenses: "Search credit expenses...",
+  search_cash_expenses: "Search cash expenses...",
+  search_income: "Search income..."
 };
 
 // Spanish translations
@@ -758,5 +770,9 @@ export const esES_translations: Translation = {
   add_category: "Agregar Categoría",
   category_name: "Nombre de la Categoría",
   category_color: "Color de la Categoría",
-  category_name_required: "El nombre de la categoría es obligatorio"
+  category_name_required: "El nombre de la categoría es obligatorio",
+  search_subscriptions: "Buscar suscripciones...",
+  search_credit_expenses: "Buscar gastos de crédito...",
+  search_cash_expenses: "Buscar gastos en efectivo...",
+  search_income: "Buscar ingresos..."
 };

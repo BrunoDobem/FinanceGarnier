@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { BarChart3, DollarSign, LineChart, PieChart, TrendingUp, Calendar, CreditCard, Repeat, Wallet, Tags, ListOrdered, Edit, Trash2, Plus } from "lucide-react";
+import { useState, useMemo } from "react";
+import { BarChart3, DollarSign, LineChart, PieChart, TrendingUp, Calendar, CreditCard, Repeat, Wallet, Tags, ListOrdered, Edit, Trash2, Plus, Info } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFinance } from "@/providers/FinanceProvider";
@@ -30,12 +30,20 @@ import {
   Cell,
   LineChart as RechartsLineChart,
   Line,
+  ComposedChart,
+  ReferenceLine,
+  Brush,
+  AreaChart,
+  Area,
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 const CHART_COLORS = [
   "#3b82f6", // blue
@@ -49,6 +57,19 @@ const CHART_COLORS = [
   "#14b8a6", // teal
   "#f97316", // orange
 ];
+
+// Definindo as chaves de tradução
+type TranslationMessages = {
+  success: string;
+  error: string;
+  item_deleted: string;
+  error_deleting_item: string;
+  expense_deleted: string;
+  error_deleting_expense: string;
+  item_updated: string;
+  item_added: string;
+  error_saving_item: string;
+};
 
 export default function Dashboard() {
   const { t, language } = useLanguage();
@@ -67,15 +88,14 @@ export default function Dashboard() {
 
   const handleDelete = async (id: string) => {
     try {
-      // Implemente a lógica de exclusão aqui
       toast({
         title: t("success"),
-        description: t("item_deleted"),
+        description: "Item excluído com sucesso",
       });
     } catch (error) {
       toast({
         title: t("error"),
-        description: t("error_deleting_item"),
+        description: "Erro ao excluir item",
         variant: "destructive",
       });
     }
@@ -88,7 +108,7 @@ export default function Dashboard() {
 
   const handleEditExpense = (month: string) => {
     const expense = finance.creditExpenses.find(
-      (exp) => exp.date.toISOString().startsWith(month)
+      (exp) => new Date(exp.date).toISOString().startsWith(month)
     );
     if (expense) {
       setEditingItem(expense);
@@ -99,19 +119,18 @@ export default function Dashboard() {
   const handleDeleteExpense = async (month: string) => {
     try {
       const expense = finance.creditExpenses.find(
-        (exp) => exp.date.toISOString().startsWith(month)
+        (exp) => new Date(exp.date).toISOString().startsWith(month)
       );
       if (expense) {
-        // Implemente a lógica de exclusão aqui
         toast({
           title: t("success"),
-          description: t("expense_deleted"),
+          description: "Despesa excluída com sucesso",
         });
       }
     } catch (error) {
       toast({
         title: t("error"),
-        description: t("error_deleting_expense"),
+        description: "Erro ao excluir despesa",
         variant: "destructive",
       });
     }
@@ -131,16 +150,14 @@ export default function Dashboard() {
       };
 
       if (editingItem) {
-        // Implemente a lógica de atualização aqui
         toast({
           title: t("success"),
-          description: t("item_updated"),
+          description: "Item atualizado com sucesso",
         });
       } else {
-        // Implemente a lógica de criação aqui
         toast({
           title: t("success"),
-          description: t("item_added"),
+          description: "Item adicionado com sucesso",
         });
       }
 
@@ -149,7 +166,7 @@ export default function Dashboard() {
     } catch (error) {
       toast({
         title: t("error"),
-        description: t("error_saving_item"),
+        description: "Erro ao salvar item",
         variant: "destructive",
       });
     }
@@ -203,7 +220,18 @@ export default function Dashboard() {
   ];
 
   const expensesByCategory = analyzeExpensesByCategory(allExpenses);
-  const expensesByCard = analyzeExpensesByCard(allExpenses);
+  const { creditCards } = useFinance();
+  const expensesByCard = useMemo(() => {
+    const cardMap = new Map(creditCards.map(card => [card.id, card.name]));
+    const expenses = analyzeExpensesByCard(allExpenses);
+    
+    // Transforma os IDs dos cartões em nomes
+    return Object.entries(expenses).reduce((acc, [cardId, value]) => {
+      const cardName = cardId === 'Cartão Principal' ? cardId : cardMap.get(cardId) || 'Outro Cartão';
+      acc[cardName] = value;
+      return acc;
+    }, {} as { [key: string]: number });
+  }, [creditCards, allExpenses]);
   const expensesByPaymentMethod = analyzeExpensesByPaymentMethod(allExpenses);
 
   // Transforme os dados para o formato do gráfico
@@ -224,6 +252,16 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 md:space-y-8">
+      <style>
+        {`
+          .recharts-tooltip-wrapper {
+            background-color: white !important;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+          }
+        `}
+      </style>
+      
       <div className="flex flex-col gap-2 md:gap-4">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dashboard")}</h1>
         <p className="text-sm md:text-base text-muted-foreground">
@@ -232,11 +270,21 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="animate-fade-in hover:bg-accent/50 transition-all duration-200 cursor-default">
+        <Card className="animate-fade-in hover:bg-accent/50 transition-all duration-200 cursor-default group">
           <CardHeader className="pb-1 md:pb-2">
             <CardTitle className="text-sm md:text-base flex items-center gap-2">
               <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
-              Renda Total
+              <span className="flex items-center gap-2">
+                Renda Total
+                <HoverCard>
+                  <HoverCardTrigger>
+                    <Info className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </HoverCardTrigger>
+                  <HoverCardContent>
+                    <p className="text-sm">Soma de todas as suas fontes de renda no mês atual.</p>
+                  </HoverCardContent>
+                </HoverCard>
+              </span>
             </CardTitle>
             <CardDescription className="text-xs md:text-sm">Mês atual</CardDescription>
           </CardHeader>
@@ -244,14 +292,34 @@ export default function Dashboard() {
             <div className="text-lg md:text-2xl font-bold text-green-500">
               {formatCurrency(totalIncome, language)}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {finance.incomes.length} {finance.incomes.length === 1 ? 'fonte de renda' : 'fontes de renda'}
+            </p>
           </CardContent>
         </Card>
         
-        <Card className="animate-fade-in animation-delay-100 hover:bg-accent/50 transition-all duration-200 cursor-default">
+        <Card className="animate-fade-in animation-delay-100 hover:bg-accent/50 transition-all duration-200 cursor-default group">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Wallet className="h-5 w-5 text-red-500" />
-              Despesas do Mês
+              <span className="flex items-center gap-2">
+                Despesas do Mês
+                <HoverCard>
+                  <HoverCardTrigger>
+                    <Info className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </HoverCardTrigger>
+                  <HoverCardContent>
+                    <div className="space-y-2">
+                      <p className="text-sm">Total de gastos no mês atual, incluindo:</p>
+                      <ul className="text-sm list-disc list-inside space-y-1">
+                        <li>Cartão de Crédito: {formatCurrency(metrics.currentMonthDetails.creditExpenses, language)}</li>
+                        <li>Assinaturas: {formatCurrency(metrics.currentMonthDetails.subscriptionExpenses, language)}</li>
+                        <li>Dinheiro: {formatCurrency(metrics.currentMonthDetails.cashExpenses, language)}</li>
+                      </ul>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              </span>
             </CardTitle>
             <CardDescription>Total de gastos atuais</CardDescription>
           </CardHeader>
@@ -259,29 +327,74 @@ export default function Dashboard() {
             <div className="text-2xl font-bold text-red-500">
               {formatCurrency(metrics.currentMonthExpenses, language)}
             </div>
+            <Progress 
+              value={metrics.expenseToIncomeRatio} 
+              className={cn(
+                "h-1 mt-2",
+                metrics.expenseToIncomeRatio > 100 ? "bg-red-500" :
+                metrics.expenseToIncomeRatio > 80 ? "bg-yellow-500" :
+                "bg-green-500"
+              )}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              {metrics.expenseToIncomeRatio.toFixed(1)}% da renda
+            </p>
           </CardContent>
         </Card>
         
-        <Card className="animate-fade-in animation-delay-200 hover:bg-accent/50 transition-all duration-200 cursor-default">
+        <Card className="animate-fade-in animation-delay-200 hover:bg-accent/50 transition-all duration-200 cursor-default group">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-              Saldo Atual
+              <span className="flex items-center gap-2">
+                Saldo Atual
+                <HoverCard>
+                  <HoverCardTrigger>
+                    <Info className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </HoverCardTrigger>
+                  <HoverCardContent>
+                    <p className="text-sm">Diferença entre sua renda total e despesas no mês atual.</p>
+                  </HoverCardContent>
+                </HoverCard>
+              </span>
             </CardTitle>
             <CardDescription>Renda menos despesas</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${metrics.currentMonthBalance >= 0 ? "text-green-500" : "text-red-500"}`}>
+            <div className={cn(
+              "text-2xl font-bold",
+              metrics.currentMonthBalance >= 0 ? "text-green-500" : "text-red-500"
+            )}>
               {formatCurrency(metrics.currentMonthBalance, language)}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {metrics.currentMonthBalance >= 0 
+                ? "Saldo positivo este mês"
+                : "Saldo negativo este mês"}
+            </p>
           </CardContent>
         </Card>
         
-        <Card className="animate-fade-in animation-delay-300 hover:bg-accent/50 transition-all duration-200 cursor-default">
+        <Card className="animate-fade-in animation-delay-300 hover:bg-accent/50 transition-all duration-200 cursor-default group">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Tags className="h-5 w-5 text-blue-500" />
-              Taxa de Poupança
+              <span className="flex items-center gap-2">
+                Taxa de Poupança
+                <HoverCard>
+                  <HoverCardTrigger>
+                    <Info className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </HoverCardTrigger>
+                  <HoverCardContent>
+                    <div className="space-y-2">
+                      <p className="text-sm">Percentual da sua renda que está sendo poupada.</p>
+                      <p className="text-sm text-muted-foreground">
+                        Calculado como: (Renda - Despesas) / Renda × 100
+                      </p>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              </span>
             </CardTitle>
             <CardDescription>Percentual da renda poupada</CardDescription>
           </CardHeader>
@@ -289,6 +402,21 @@ export default function Dashboard() {
             <div className="text-2xl font-bold text-blue-500">
               {Math.round(metrics.savingsRate)}%
             </div>
+            <Progress 
+              value={metrics.savingsRate} 
+              className="h-1 mt-2" 
+              indicatorClassName={cn(
+                metrics.savingsRate < 0 ? "bg-red-500" :
+                metrics.savingsRate < 10 ? "bg-yellow-500" :
+                "bg-blue-500"
+              )}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              {metrics.savingsRate < 0 ? "Poupança negativa" :
+               metrics.savingsRate < 10 ? "Poupança baixa" :
+               metrics.savingsRate < 20 ? "Poupança moderada" :
+               "Boa taxa de poupança"}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -330,20 +458,28 @@ export default function Dashboard() {
               </CardTitle>
               <CardDescription className="text-xs md:text-sm">Comparação mensal de renda e despesas</CardDescription>
             </CardHeader>
-            <CardContent className="h-[300px] md:h-[400px]">
+            <CardContent className="h-[300px] md:h-[400px] rounded-lg p-4 hover:bg-white transition-all duration-200">
               <ResponsiveContainer width="100%" height="100%">
-                <RechartsBarChart
+                <ComposedChart
                   data={monthlyData}
                   margin={{
                     top: 20,
-                    right: 20,
+                    right: 30,
                     left: 20,
-                    bottom: 20,
+                    bottom: 60,
                   }}
-                  barGap={0}
-                  barCategoryGap="20%"
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.3} />
+                  <defs>
+                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={CHART_COLORS[0]} stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor={CHART_COLORS[0]} stopOpacity={0.01}/>
+                    </linearGradient>
+                    <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={CHART_COLORS[1]} stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor={CHART_COLORS[1]} stopOpacity={0.01}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.2} />
                   <XAxis 
                     dataKey="name" 
                     tick={{ fill: "var(--foreground)", fontSize: "12px" }}
@@ -365,18 +501,128 @@ export default function Dashboard() {
                       backgroundColor: "var(--background)",
                       border: "1px solid var(--border)",
                       borderRadius: "8px",
+                      padding: "12px",
+                      fontSize: "12px",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
                     }}
-                    formatter={(value) => [formatCurrency(value as number, language)]}
+                    formatter={(value, name) => {
+                      const formattedValue = formatCurrency(value as number, language);
+                      const translatedName = {
+                        income: "Renda",
+                        totalExpenses: "Despesas Totais",
+                        balance: "Saldo",
+                        creditExpenses: "Cartão de Crédito",
+                        subscriptionExpenses: "Assinaturas",
+                        cashExpenses: "Dinheiro"
+                      }[name as string] || name;
+                      return [formattedValue, translatedName];
+                    }}
+                    labelFormatter={(label) => {
+                      const date = monthlyData.find(item => item.name === label)?.month;
+                      if (date) {
+                        return new Date(date).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+                      }
+                      return label;
+                    }}
                   />
                   <Legend 
-                    wrapperStyle={{
-                      fontSize: "12px",
-                      paddingTop: "10px",
+                    verticalAlign="top"
+                    height={36}
+                    formatter={(value) => {
+                      const translations = {
+                        income: "Renda",
+                        totalExpenses: "Despesas Totais",
+                        balance: "Saldo"
+                      };
+                      return translations[value] || value;
                     }}
                   />
-                  <Bar dataKey="income" name="Renda" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="totalExpenses" name="Despesas" fill={CHART_COLORS[1]} radius={[4, 4, 0, 0]} />
-                </RechartsBarChart>
+                  <Bar 
+                    dataKey="income" 
+                    fill={CHART_COLORS[0]} 
+                    radius={[4, 4, 0, 0]} 
+                    maxBarSize={50}
+                    opacity={0.8}
+                    background={{ fill: "url(#colorIncome)" }}
+                    className="hover:brightness-110 transition-all duration-200"
+                    onMouseEnter={(data) => {
+                      const bar = document.querySelector(`[datakey="income"][index="${data.index}"]`);
+                      if (bar) {
+                        bar.setAttribute('style', 'filter: brightness(1.2); cursor: pointer;');
+                      }
+                    }}
+                    onMouseLeave={(data) => {
+                      const bar = document.querySelector(`[datakey="income"][index="${data.index}"]`);
+                      if (bar) {
+                        bar.setAttribute('style', '');
+                      }
+                    }}
+                  />
+                  <Bar 
+                    dataKey="totalExpenses" 
+                    fill={CHART_COLORS[1]} 
+                    radius={[4, 4, 0, 0]} 
+                    maxBarSize={50}
+                    opacity={0.8}
+                    background={{ fill: "url(#colorExpenses)" }}
+                    className="hover:brightness-110 transition-all duration-200"
+                    onMouseEnter={(data) => {
+                      const bar = document.querySelector(`[datakey="totalExpenses"][index="${data.index}"]`);
+                      if (bar) {
+                        bar.setAttribute('style', 'filter: brightness(1.2); cursor: pointer;');
+                      }
+                    }}
+                    onMouseLeave={(data) => {
+                      const bar = document.querySelector(`[datakey="totalExpenses"][index="${data.index}"]`);
+                      if (bar) {
+                        bar.setAttribute('style', '');
+                      }
+                    }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="balance" 
+                    stroke={CHART_COLORS[2]}
+                    strokeWidth={2}
+                    dot={{ fill: CHART_COLORS[2], r: 4 }}
+                    activeDot={{ r: 6, fill: CHART_COLORS[2], stroke: "var(--background)", strokeWidth: 2 }}
+                    className="hover:brightness-110 transition-all duration-200"
+                  />
+                  <ReferenceLine y={0} stroke="var(--border)" strokeDasharray="3 3" />
+                  <Brush 
+                    dataKey="name" 
+                    height={30} 
+                    stroke="var(--border)"
+                    fill="var(--background)"
+                    tickFormatter={(tick) => {
+                      const date = monthlyData.find(item => item.name === tick)?.month;
+                      return date ? new Date(date).toLocaleString('pt-BR', { month: 'short' }) : tick;
+                    }}
+                    travellerWidth={10}
+                    className="recharts-brush"
+                  >
+                    <style>
+                      {`
+                        .recharts-brush-slide {
+                          fill: var(--primary);
+                          fill-opacity: 0.2;
+                          cursor: grab;
+                        }
+                        .recharts-brush-traveller {
+                          fill: var(--primary);
+                          stroke: var(--primary);
+                          stroke-width: 1px;
+                          rx: 4;
+                          cursor: ew-resize;
+                        }
+                        .recharts-brush-texts {
+                          font-size: 12px;
+                          fill: var(--foreground);
+                        }
+                      `}
+                    </style>
+                  </Brush>
+                </ComposedChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -388,43 +634,200 @@ export default function Dashboard() {
                   <PieChart className="h-5 w-5" />
                   <span>Distribuição de Despesas</span>
                 </CardTitle>
-                <CardDescription>Breakdown dos tipos de despesas</CardDescription>
+                <CardDescription>Composição dos gastos ao longo do tempo</CardDescription>
               </CardHeader>
-              <CardContent className="h-[250px] sm:h-[300px] md:h-[400px]">
+              <CardContent className="h-[250px] sm:h-[300px] md:h-[400px] rounded-lg p-4 hover:bg-white transition-all duration-200">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RechartsPieChart>
-                    <Pie
-                      data={expenseBreakdownData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={({ width, height }) => Math.min(width, height) * 0.35}
-                      innerRadius={({ width, height }) => Math.min(width, height) * 0.2}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, value, percent }) => 
-                        `${name}: ${formatCurrency(value, language)} (${(percent * 100).toFixed(0)}%)`
-                      }
-                      labelStyle={{
-                        fill: "var(--foreground)",
-                        fontSize: "12px"
-                      }}
-                    >
-                      {expenseBreakdownData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                  <AreaChart
+                    data={monthlyData}
+                    margin={{
+                      top: 20,
+                      right: 30,
+                      left: 20,
+                      bottom: 60,
+                    }}
+                  >
+                    <defs>
+                      {["creditExpenses", "subscriptionExpenses", "cashExpenses"].map((key, index) => (
+                        <linearGradient key={key} id={`color${key}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={CHART_COLORS[index + 3]} stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor={CHART_COLORS[index + 3]} stopOpacity={0.1}/>
+                        </linearGradient>
                       ))}
-                    </Pie>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.2} />
+                    <XAxis 
+                      dataKey="name" 
+                      tick={{ fill: "var(--foreground)", fontSize: "12px" }}
+                      axisLine={{ stroke: "var(--border)" }}
+                      tickLine={{ stroke: "var(--border)" }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                    />
+                    <YAxis 
+                      tick={{ fill: "var(--foreground)", fontSize: "12px" }}
+                      axisLine={{ stroke: "var(--border)" }}
+                      tickLine={{ stroke: "var(--border)" }}
+                      tickFormatter={(value) => formatCurrency(value, language)}
+                      width={80}
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "var(--background)",
                         border: "1px solid var(--border)",
                         borderRadius: "8px",
+                        padding: "12px",
                         fontSize: "12px",
-                        padding: "8px"
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
                       }}
-                      formatter={(value) => [formatCurrency(value as number, language)]}
+                      formatter={(value, name) => {
+                        const formattedValue = formatCurrency(value as number, language);
+                        const translatedName = {
+                          creditExpenses: "Cartão de Crédito",
+                          subscriptionExpenses: "Assinaturas",
+                          cashExpenses: "Dinheiro"
+                        }[name as string] || name;
+                        return [formattedValue, translatedName];
+                      }}
+                      labelFormatter={(label) => {
+                        const date = monthlyData.find(item => item.name === label)?.month;
+                        if (date) {
+                          return new Date(date).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+                        }
+                        return label;
+                      }}
                     />
-                  </RechartsPieChart>
+                    <Legend 
+                      verticalAlign="top"
+                      height={36}
+                      formatter={(value) => {
+                        const translations = {
+                          creditExpenses: "Cartão de Crédito",
+                          subscriptionExpenses: "Assinaturas",
+                          cashExpenses: "Dinheiro"
+                        };
+                        return translations[value] || value;
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="creditExpenses"
+                      stackId="1"
+                      stroke={CHART_COLORS[3]}
+                      fill={`url(#colorCreditExpenses)`}
+                      className="hover:brightness-110 transition-all duration-200"
+                      onMouseEnter={(e) => {
+                        const target = e.target as SVGElement;
+                        const index = target.getAttribute('index');
+                        if (index) {
+                          const area = document.querySelector(`[datakey="creditExpenses"][index="${index}"]`);
+                          if (area) {
+                            area.setAttribute('style', 'filter: brightness(1.2); cursor: pointer;');
+                          }
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        const target = e.target as SVGElement;
+                        const index = target.getAttribute('index');
+                        if (index) {
+                          const area = document.querySelector(`[datakey="creditExpenses"][index="${index}"]`);
+                          if (area) {
+                            area.setAttribute('style', '');
+                          }
+                        }
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="subscriptionExpenses"
+                      stackId="1"
+                      stroke={CHART_COLORS[4]}
+                      fill={`url(#colorSubscriptionExpenses)`}
+                      className="hover:brightness-110 transition-all duration-200"
+                      onMouseEnter={(e) => {
+                        const target = e.target as SVGElement;
+                        const index = target.getAttribute('index');
+                        if (index) {
+                          const area = document.querySelector(`[datakey="subscriptionExpenses"][index="${index}"]`);
+                          if (area) {
+                            area.setAttribute('style', 'filter: brightness(1.2); cursor: pointer;');
+                          }
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        const target = e.target as SVGElement;
+                        const index = target.getAttribute('index');
+                        if (index) {
+                          const area = document.querySelector(`[datakey="subscriptionExpenses"][index="${index}"]`);
+                          if (area) {
+                            area.setAttribute('style', '');
+                          }
+                        }
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="cashExpenses"
+                      stackId="1"
+                      stroke={CHART_COLORS[5]}
+                      fill={`url(#colorCashExpenses)`}
+                      className="hover:brightness-110 transition-all duration-200"
+                      onMouseEnter={(e) => {
+                        const target = e.target as SVGElement;
+                        const index = target.getAttribute('index');
+                        if (index) {
+                          const area = document.querySelector(`[datakey="cashExpenses"][index="${index}"]`);
+                          if (area) {
+                            area.setAttribute('style', 'filter: brightness(1.2); cursor: pointer;');
+                          }
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        const target = e.target as SVGElement;
+                        const index = target.getAttribute('index');
+                        if (index) {
+                          const area = document.querySelector(`[datakey="cashExpenses"][index="${index}"]`);
+                          if (area) {
+                            area.setAttribute('style', '');
+                          }
+                        }
+                      }}
+                    />
+                    <Brush 
+                      dataKey="name" 
+                      height={30} 
+                      stroke="var(--border)"
+                      fill="var(--background)"
+                      tickFormatter={(tick) => {
+                        const date = monthlyData.find(item => item.name === tick)?.month;
+                        return date ? new Date(date).toLocaleString('pt-BR', { month: 'short' }) : tick;
+                      }}
+                      travellerWidth={10}
+                      className="recharts-brush"
+                    >
+                      <style>
+                        {`
+                          .recharts-brush-slide {
+                            fill: var(--primary);
+                            fill-opacity: 0.2;
+                            cursor: grab;
+                          }
+                          .recharts-brush-traveller {
+                            fill: var(--primary);
+                            stroke: var(--primary);
+                            stroke-width: 1px;
+                            rx: 4;
+                            cursor: ew-resize;
+                          }
+                          .recharts-brush-texts {
+                            font-size: 12px;
+                            fill: var(--foreground);
+                          }
+                        `}
+                      </style>
+                    </Brush>
+                  </AreaChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
@@ -437,7 +840,7 @@ export default function Dashboard() {
                 </CardTitle>
                 <CardDescription>Evolução do saldo mensal</CardDescription>
               </CardHeader>
-              <CardContent className="h-[250px] sm:h-[300px] md:h-[400px]">
+              <CardContent className="h-[250px] sm:h-[300px] md:h-[400px] rounded-lg p-4 hover:bg-white transition-all duration-200">
                 <ResponsiveContainer width="100%" height="100%">
                   <RechartsLineChart
                     data={monthlyData}
@@ -448,7 +851,17 @@ export default function Dashboard() {
                       bottom: 40,
                     }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.3} />
+                    <defs>
+                      <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={CHART_COLORS[0]} stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor={CHART_COLORS[0]} stopOpacity={0.01}/>
+                      </linearGradient>
+                      <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={CHART_COLORS[1]} stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor={CHART_COLORS[1]} stopOpacity={0.01}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.2} />
                     <XAxis 
                       dataKey="name" 
                       tick={{ fill: "var(--foreground)", fontSize: "12px" }}
@@ -505,42 +918,53 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px]">
+                <div className="h-[300px] rounded-lg p-4 hover:bg-white transition-all duration-200">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsPieChart>
                       <Pie
                         data={categoryData}
                         cx="50%"
-                        cy="50%"
+                        cy="45%"
                         labelLine={false}
-                        outerRadius={100}
+                        outerRadius={90}
                         innerRadius={60}
                         fill="#8884d8"
                         dataKey="value"
-                        label={({ name, value, percent }) => 
-                          `${name}: ${formatCurrency(value, language)} (${(percent * 100).toFixed(0)}%)`
-                        }
-                        labelStyle={{
-                          fill: "var(--foreground)",
-                          fontSize: "12px"
+                        label={(entry) => {
+                          const { percent } = entry;
+                          return `${(percent * 100).toFixed(0)}%`;
                         }}
                       >
                         {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={CHART_COLORS[index % CHART_COLORS.length]}
+                            stroke="var(--background)"
+                            strokeWidth={2}
+                          />
                         ))}
                       </Pie>
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: "hsl(var(--popover))",
-                          borderColor: "hsl(var(--border))",
-                          borderWidth: "1px",
-                          borderRadius: "0.5rem",
-                          boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-                          padding: "0.75rem",
-                          color: "hsl(var(--popover-foreground))"
+                          backgroundColor: "var(--background)",
+                          border: "1px solid var(--border)",
+                          borderRadius: "8px",
+                          padding: "12px",
+                          fontSize: "12px",
+                          boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
                         }}
                         formatter={(value: number) => formatCurrency(value, language)}
                         wrapperStyle={{ outline: "none" }}
+                      />
+                      <Legend 
+                        layout="horizontal"
+                        align="center"
+                        verticalAlign="bottom"
+                        height={36}
+                        formatter={(value) => <span className="text-xs">{value}</span>}
+                        wrapperStyle={{
+                          paddingTop: "20px"
+                        }}
                       />
                     </RechartsPieChart>
                   </ResponsiveContainer>
@@ -556,42 +980,53 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px]">
+                <div className="h-[300px] rounded-lg p-4 hover:bg-white transition-all duration-200">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsPieChart>
                       <Pie
                         data={cardData}
                         cx="50%"
-                        cy="50%"
+                        cy="45%"
                         labelLine={false}
-                        outerRadius={100}
+                        outerRadius={90}
                         innerRadius={60}
                         fill="#8884d8"
                         dataKey="value"
-                        label={({ name, value, percent }) => 
-                          `${name}: ${formatCurrency(value, language)} (${(percent * 100).toFixed(0)}%)`
-                        }
-                        labelStyle={{
-                          fill: "var(--foreground)",
-                          fontSize: "12px"
+                        label={(entry) => {
+                          const { percent } = entry;
+                          return `${(percent * 100).toFixed(0)}%`;
                         }}
                       >
                         {cardData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={CHART_COLORS[index % CHART_COLORS.length]}
+                            stroke="var(--background)"
+                            strokeWidth={2}
+                          />
                         ))}
                       </Pie>
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: "hsl(var(--popover))",
-                          borderColor: "hsl(var(--border))",
-                          borderWidth: "1px",
-                          borderRadius: "0.5rem",
-                          boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-                          padding: "0.75rem",
-                          color: "hsl(var(--popover-foreground))"
+                          backgroundColor: "var(--background)",
+                          border: "1px solid var(--border)",
+                          borderRadius: "8px",
+                          padding: "12px",
+                          fontSize: "12px",
+                          boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
                         }}
                         formatter={(value: number) => formatCurrency(value, language)}
                         wrapperStyle={{ outline: "none" }}
+                      />
+                      <Legend 
+                        layout="horizontal"
+                        align="center"
+                        verticalAlign="bottom"
+                        height={36}
+                        formatter={(value) => <span className="text-xs">{value}</span>}
+                        wrapperStyle={{
+                          paddingTop: "20px"
+                        }}
                       />
                     </RechartsPieChart>
                   </ResponsiveContainer>
@@ -607,42 +1042,53 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px]">
+                <div className="h-[300px] rounded-lg p-4 hover:bg-white transition-all duration-200">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsPieChart>
                       <Pie
                         data={paymentMethodData}
                         cx="50%"
-                        cy="50%"
+                        cy="45%"
                         labelLine={false}
-                        outerRadius={100}
+                        outerRadius={90}
                         innerRadius={60}
                         fill="#8884d8"
                         dataKey="value"
-                        label={({ name, value, percent }) => 
-                          `${name}: ${formatCurrency(value, language)} (${(percent * 100).toFixed(0)}%)`
-                        }
-                        labelStyle={{
-                          fill: "var(--foreground)",
-                          fontSize: "12px"
+                        label={(entry) => {
+                          const { percent } = entry;
+                          return `${(percent * 100).toFixed(0)}%`;
                         }}
                       >
                         {paymentMethodData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={CHART_COLORS[index % CHART_COLORS.length]}
+                            stroke="var(--background)"
+                            strokeWidth={2}
+                          />
                         ))}
                       </Pie>
                       <Tooltip 
                         contentStyle={{ 
-                          backgroundColor: "hsl(var(--popover))",
-                          borderColor: "hsl(var(--border))",
-                          borderWidth: "1px",
-                          borderRadius: "0.5rem",
-                          boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-                          padding: "0.75rem",
-                          color: "hsl(var(--popover-foreground))"
+                          backgroundColor: "var(--background)",
+                          border: "1px solid var(--border)",
+                          borderRadius: "8px",
+                          padding: "12px",
+                          fontSize: "12px",
+                          boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
                         }}
                         formatter={(value: number) => formatCurrency(value, language)}
                         wrapperStyle={{ outline: "none" }}
+                      />
+                      <Legend 
+                        layout="horizontal"
+                        align="center"
+                        verticalAlign="bottom"
+                        height={36}
+                        formatter={(value) => <span className="text-xs">{value}</span>}
+                        wrapperStyle={{
+                          paddingTop: "20px"
+                        }}
                       />
                     </RechartsPieChart>
                   </ResponsiveContainer>

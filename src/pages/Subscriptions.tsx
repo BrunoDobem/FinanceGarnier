@@ -40,6 +40,7 @@ import { Subscription } from "@/types/finance";
 import { useFinance } from "@/providers/FinanceProvider";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { SearchInput } from "@/components/SearchInput";
 
 export default function Subscriptions() {
   const { t, language } = useLanguage();
@@ -47,6 +48,7 @@ export default function Subscriptions() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [newSubscription, setNewSubscription] = useState({
     description: "",
     amount: "",
@@ -133,6 +135,12 @@ export default function Subscriptions() {
 
   // Calculate total monthly subscription cost
   const totalMonthly = subscriptions.reduce((sum, sub) => sum + sub.amount, 0);
+
+  // Filter subscriptions based on search term
+  const filteredSubscriptions = subscriptions.filter(subscription => 
+    subscription.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getCategoryName(subscription.category).toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="space-y-8">
@@ -288,65 +296,72 @@ export default function Subscriptions() {
             <CardDescription>Your next subscription charges</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              {subscriptions.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Next Payment</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {subscriptions.map((subscription) => (
-                      <TableRow key={subscription.id} className="group">
-                        <TableCell className="font-medium">
-                          {subscription.description}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: getCategoryColor(subscription.category) }}
-                            />
-                            {getCategoryName(subscription.category)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="flex items-center gap-1">
-                          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                          {formatDate(subscription.nextBillingDate, "dd/MM/yyyy", language)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(subscription.amount, language)}
-                        </TableCell>
-                        <TableCell className="text-right p-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => handleDelete(subscription.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                          </Button>
-                        </TableCell>
+            <div className="space-y-4">
+              <SearchInput
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder={t("search_subscriptions")}
+              />
+              <div className="rounded-md border">
+                {filteredSubscriptions.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Next Payment</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead></TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="flex flex-col items-center justify-center p-8 text-center animate-fade-in">
-                  <div className="rounded-full bg-muted p-3 mb-4">
-                    <CalendarIcon className="h-6 w-6 text-muted-foreground" />
+                    </TableHeader>
+                    <TableBody>
+                      {filteredSubscriptions.map((subscription) => (
+                        <TableRow key={subscription.id} className="group">
+                          <TableCell className="font-medium">
+                            {subscription.description}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: getCategoryColor(subscription.category) }}
+                              />
+                              {getCategoryName(subscription.category)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="flex items-center gap-1">
+                            <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            {formatDate(subscription.nextBillingDate, "dd/MM/yyyy", language)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(subscription.amount, language)}
+                          </TableCell>
+                          <TableCell className="text-right p-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => handleDelete(subscription.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+                    <div className="rounded-full bg-muted p-3 mb-4">
+                      <CalendarIcon className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold">No subscriptions</h3>
+                    <p className="text-sm text-muted-foreground max-w-sm mt-1">
+                      You haven't added any subscriptions yet. Click the "Add Subscription" button to get started.
+                    </p>
                   </div>
-                  <h3 className="text-lg font-semibold">No subscriptions</h3>
-                  <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                    You haven't added any subscriptions yet. Click the "Add Subscription" button to get started.
-                  </p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

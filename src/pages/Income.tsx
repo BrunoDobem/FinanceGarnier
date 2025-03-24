@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { CalendarIcon, Plus, PlusCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -40,12 +39,14 @@ import { Income as IncomeType } from "@/types/finance";
 import { useFinance } from "@/providers/FinanceProvider";
 import { useLanguage } from "@/providers/LanguageProvider";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { SearchInput } from "@/components/SearchInput";
 
 export default function Income() {
   const { t, language } = useLanguage();
   const { categories, incomes, addTransaction, deleteTransaction } = useFinance();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [newIncome, setNewIncome] = useState({
     description: "",
     amount: "",
@@ -130,6 +131,13 @@ export default function Income() {
 
   // Calculate total income
   const totalIncome = incomes.reduce((sum, income) => sum + income.amount, 0);
+
+  // Filter incomes based on search term
+  const filteredIncomes = incomes.filter(income => 
+    income.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getCategoryName(income.category).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (income.source && income.source.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   return (
     <div className="space-y-8">
@@ -334,69 +342,76 @@ export default function Income() {
           <CardDescription>Your income sources and amounts</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            {incomes.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {incomes.map((income) => (
-                    <TableRow key={income.id} className="group">
-                      <TableCell className="font-medium">
-                        {income.description}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: getCategoryColor(income.category) }}
-                          />
-                          {getCategoryName(income.category)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {income.source || "-"}
-                      </TableCell>
-                      <TableCell className="flex items-center gap-1">
-                        <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                        {formatDate(income.date, "dd/MM/yyyy", language)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-green-500">
-                        {formatCurrency(income.amount, language)}
-                      </TableCell>
-                      <TableCell className="text-right p-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleDelete(income.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                        </Button>
-                      </TableCell>
+          <div className="space-y-4">
+            <SearchInput
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder={t("search_income")}
+            />
+            <div className="rounded-md border">
+              {filteredIncomes.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="flex flex-col items-center justify-center p-8 text-center animate-fade-in">
-                <div className="rounded-full bg-muted p-3 mb-4">
-                  <PlusCircle className="h-6 w-6 text-muted-foreground" />
+                  </TableHeader>
+                  <TableBody>
+                    {filteredIncomes.map((income) => (
+                      <TableRow key={income.id} className="group">
+                        <TableCell className="font-medium">
+                          {income.description}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: getCategoryColor(income.category) }}
+                            />
+                            {getCategoryName(income.category)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {income.source || "-"}
+                        </TableCell>
+                        <TableCell className="flex items-center gap-1">
+                          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                          {formatDate(income.date, "dd/MM/yyyy", language)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium text-green-500">
+                          {formatCurrency(income.amount, language)}
+                        </TableCell>
+                        <TableCell className="text-right p-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleDelete(income.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+                  <div className="rounded-full bg-muted p-3 mb-4">
+                    <PlusCircle className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold">No income entries</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm mt-1">
+                    You haven't added any income yet. Click the "Add Income" button to get started.
+                  </p>
                 </div>
-                <h3 className="text-lg font-semibold">No income entries</h3>
-                <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                  You haven't added any income yet. Click the "Add Income" button to get started.
-                </p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

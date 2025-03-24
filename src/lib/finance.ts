@@ -40,31 +40,30 @@ export function calculateFutureCreditExpenses(
       // Se todas as parcelas estão efetivamente pagas, não incluir nos gastos futuros
       if (remainingInstallments <= 0) return;
 
-      // Calcula em qual parcela estamos atualmente
-      const monthsSinceStart = Math.floor(
-        (currentDate.getTime() - startDate.getTime()) / (30.44 * 24 * 60 * 60 * 1000)
-      );
-      const currentInstallment = Math.min(
-        Math.max(1, monthsSinceStart + 1),
-        expense.installments
-      );
-
-      // Para cada mês, verifica se há uma parcela a ser paga
-      const startMonth = includePastExpenses ? -monthsAhead : 0;
-      for (let i = startMonth; i < monthsAhead; i++) {
-        const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
-        const monthKey = formatDateKey(monthDate);
-        const installmentNumber = currentInstallment + i;
+      // Calcula o primeiro mês de vencimento
+      const firstDueDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+      
+      // Para cada parcela possível
+      for (let installmentNumber = 1; installmentNumber <= expense.installments; installmentNumber++) {
+        // Calcula a data de vencimento desta parcela
+        const dueDate = new Date(firstDueDate);
+        dueDate.setMonth(firstDueDate.getMonth() + (installmentNumber - 1));
+        const monthKey = formatDateKey(dueDate);
 
         // Adiciona a parcela se:
-        // 1. Está dentro do número total de parcelas E
-        // 2. (Não está marcada como paga OU está marcada como não paga) E
-        // 3. O mês é o atual ou futuro (se não incluir passado)
+        // 1. Não está marcada como paga OU está marcada como não paga E
+        // 2. O mês é o atual ou futuro (se não incluir passado) E
+        // 3. Está dentro do período solicitado
+        const monthDiff = Math.floor(
+          (dueDate.getTime() - currentDate.getTime()) / (30.44 * 24 * 60 * 60 * 1000)
+        );
+
         if (
-          installmentNumber <= expense.installments && 
           (!paidInstallments.includes(installmentNumber) || 
            unpaidInstallments.includes(installmentNumber)) &&
-          (includePastExpenses || monthKey >= currentMonthKey)
+          (includePastExpenses || monthKey >= currentMonthKey) &&
+          monthDiff >= (includePastExpenses ? -monthsAhead : 0) &&
+          monthDiff < monthsAhead
         ) {
           futureExpenses[monthKey] = (futureExpenses[monthKey] || 0) + monthlyAmount;
         }
