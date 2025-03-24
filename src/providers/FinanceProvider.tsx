@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect } from "react";
 import { 
   Transaction, 
@@ -10,11 +9,7 @@ import {
   CreditCard
 } from "@/types/finance";
 import { 
-  mockSubscriptions, 
-  mockCreditExpenses, 
-  mockCashExpenses, 
-  mockIncome,
-  mockCategories
+  mockCategories 
 } from "@/lib/mockData";
 import { v4 as uuidv4 } from "@/lib/utils";
 
@@ -44,6 +39,25 @@ type FinanceContextType = {
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
+const STORAGE_KEYS = {
+  SUBSCRIPTIONS: 'garnier-finance-subscriptions',
+  CREDIT_EXPENSES: 'garnier-finance-creditExpenses',
+  CASH_EXPENSES: 'garnier-finance-cashExpenses',
+  INCOMES: 'garnier-finance-incomes',
+  CATEGORIES: 'garnier-finance-categories',
+  CREDIT_CARDS: 'garnier-finance-creditCards'
+};
+
+// Função auxiliar para converter datas em strings para objetos Date
+function convertDates<T extends { date: string | Date }>(items: T[]): T[] {
+  return items.map(item => ({
+    ...item,
+    date: new Date(item.date),
+    createdAt: item.createdAt ? new Date(item.createdAt) : undefined,
+    updatedAt: item.updatedAt ? new Date(item.updatedAt) : undefined
+  }));
+}
+
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
   // State for different transaction types
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -53,48 +67,81 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<CategoryType[]>([]);
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
 
-  // Load mock data on initial render
+  // Load data from localStorage on initial render
   useEffect(() => {
-    // In a real app, this would fetch from an API or database
-    setSubscriptions(mockSubscriptions);
-    setCreditExpenses(mockCreditExpenses);
-    setCashExpenses(mockCashExpenses);
-    setIncomes(mockIncome);
-    setCategories(mockCategories);
-    
-    // Initialize with a default credit card
-    const savedCreditCards = localStorage.getItem('garnier-finance-creditCards');
-    if (savedCreditCards) {
-      setCreditCards(JSON.parse(savedCreditCards));
-    } else {
-      setCreditCards([
-        {
-          id: uuidv4(),
-          name: "Main Credit Card",
-          closingDay: 15,
-          dueDay: 5
-        }
-      ]);
+    try {
+      const loadedSubscriptions = localStorage.getItem(STORAGE_KEYS.SUBSCRIPTIONS);
+      const loadedCreditExpenses = localStorage.getItem(STORAGE_KEYS.CREDIT_EXPENSES);
+      const loadedCashExpenses = localStorage.getItem(STORAGE_KEYS.CASH_EXPENSES);
+      const loadedIncomes = localStorage.getItem(STORAGE_KEYS.INCOMES);
+      const loadedCategories = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
+      const loadedCreditCards = localStorage.getItem(STORAGE_KEYS.CREDIT_CARDS);
+
+      // Converte as datas ao carregar os dados
+      setSubscriptions(loadedSubscriptions ? convertDates(JSON.parse(loadedSubscriptions)) : []);
+      setCreditExpenses(loadedCreditExpenses ? convertDates(JSON.parse(loadedCreditExpenses)) : []);
+      setCashExpenses(loadedCashExpenses ? convertDates(JSON.parse(loadedCashExpenses)) : []);
+      setIncomes(loadedIncomes ? convertDates(JSON.parse(loadedIncomes)) : []);
+      setCategories(loadedCategories ? JSON.parse(loadedCategories) : mockCategories);
+      setCreditCards(loadedCreditCards ? JSON.parse(loadedCreditCards) : [{
+        id: uuidv4(),
+        name: "Main Credit Card",
+        closingDay: 15,
+        dueDay: 5
+      }]);
+    } catch (error) {
+      console.error('Erro ao carregar dados do localStorage:', error);
+      // Em caso de erro, inicializa com arrays vazios
+      setSubscriptions([]);
+      setCreditExpenses([]);
+      setCashExpenses([]);
+      setIncomes([]);
+      setCategories(mockCategories);
+      setCreditCards([{
+        id: uuidv4(),
+        name: "Main Credit Card",
+        closingDay: 15,
+        dueDay: 5
+      }]);
     }
   }, []);
   
-  // Save credit cards to localStorage whenever they change
+  // Save data to localStorage whenever they change
   useEffect(() => {
-    if (creditCards.length) {
-      localStorage.setItem('garnier-finance-creditCards', JSON.stringify(creditCards));
-    }
+    localStorage.setItem(STORAGE_KEYS.SUBSCRIPTIONS, JSON.stringify(subscriptions));
+  }, [subscriptions]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.CREDIT_EXPENSES, JSON.stringify(creditExpenses));
+  }, [creditExpenses]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.CASH_EXPENSES, JSON.stringify(cashExpenses));
+  }, [cashExpenses]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.INCOMES, JSON.stringify(incomes));
+  }, [incomes]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+  }, [categories]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.CREDIT_CARDS, JSON.stringify(creditCards));
   }, [creditCards]);
 
   // Add a new transaction
   const addTransaction = (
     transaction: Omit<Transaction, "id" | "createdAt" | "updatedAt">
   ) => {
-    const now = new Date().toISOString();
+    const now = new Date();
     const newTransaction = {
       ...transaction,
       id: uuidv4(),
-      createdAt: now,
-      updatedAt: now,
+      date: new Date(transaction.date),
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
     };
 
     switch (transaction.type) {
@@ -107,7 +154,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       case "credit":
         setCreditExpenses((prev) => [
           ...prev,
-          newTransaction as CreditExpense,
+          {
+            ...newTransaction,
+            paidInstallments: [],
+            unpaidInstallments: []
+          } as CreditExpense,
         ]);
         break;
       case "cash":
@@ -121,9 +172,11 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   // Update an existing transaction
   const updateTransaction = (transaction: Transaction) => {
+    const now = new Date();
     const updatedTransaction = {
       ...transaction,
-      updatedAt: new Date().toISOString(),
+      date: new Date(transaction.date),
+      updatedAt: now.toISOString(),
     };
 
     switch (transaction.type) {

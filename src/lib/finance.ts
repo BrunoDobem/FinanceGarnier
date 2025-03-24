@@ -14,10 +14,12 @@ function formatDateKey(date: Date): string {
 
 export function calculateFutureCreditExpenses(
   creditExpenses: CreditExpense[],
-  monthsAhead: number = 12
+  monthsAhead: number = 12,
+  includePastExpenses: boolean = false
 ) {
   const currentDate = new Date();
   const futureExpenses: { [key: string]: number } = {};
+  const currentMonthKey = formatDateKey(currentDate);
 
   creditExpenses.forEach(expense => {
     try {
@@ -25,13 +27,47 @@ export function calculateFutureCreditExpenses(
       if (!isValidDate(startDate)) return;
 
       const monthlyAmount = expense.amount / expense.installments;
-      const paidInstallments = expense.paidInstallments?.length || 0;
-      const remainingInstallments = expense.installments - paidInstallments;
+      const paidInstallments = expense.paidInstallments || [];
+      const unpaidInstallments = expense.unpaidInstallments || [];
+      
+      // Calcula parcelas restantes considerando tanto pagas quanto não pagas
+      const effectivelyPaidInstallments = paidInstallments.filter(
+        num => !unpaidInstallments.includes(num)
+      ).length;
+      
+      const remainingInstallments = expense.installments - effectivelyPaidInstallments;
 
-      for (let i = 0; i < remainingInstallments && i < monthsAhead; i++) {
-        const monthDate = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+      // Se todas as parcelas estão efetivamente pagas, não incluir nos gastos futuros
+      if (remainingInstallments <= 0) return;
+
+      // Calcula em qual parcela estamos atualmente
+      const monthsSinceStart = Math.floor(
+        (currentDate.getTime() - startDate.getTime()) / (30.44 * 24 * 60 * 60 * 1000)
+      );
+      const currentInstallment = Math.min(
+        Math.max(1, monthsSinceStart + 1),
+        expense.installments
+      );
+
+      // Para cada mês, verifica se há uma parcela a ser paga
+      const startMonth = includePastExpenses ? -monthsAhead : 0;
+      for (let i = startMonth; i < monthsAhead; i++) {
+        const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
         const monthKey = formatDateKey(monthDate);
-        futureExpenses[monthKey] = (futureExpenses[monthKey] || 0) + monthlyAmount;
+        const installmentNumber = currentInstallment + i;
+
+        // Adiciona a parcela se:
+        // 1. Está dentro do número total de parcelas E
+        // 2. (Não está marcada como paga OU está marcada como não paga) E
+        // 3. O mês é o atual ou futuro (se não incluir passado)
+        if (
+          installmentNumber <= expense.installments && 
+          (!paidInstallments.includes(installmentNumber) || 
+           unpaidInstallments.includes(installmentNumber)) &&
+          (includePastExpenses || monthKey >= currentMonthKey)
+        ) {
+          futureExpenses[monthKey] = (futureExpenses[monthKey] || 0) + monthlyAmount;
+        }
       }
     } catch (error) {
       console.error('Erro ao processar despesa de crédito:', error);
@@ -43,9 +79,11 @@ export function calculateFutureCreditExpenses(
 
 export function calculateSubscriptionExpenses(
   subscriptions: Subscription[],
-  monthsAhead: number = 12
+  monthsAhead: number = 12,
+  includePastExpenses: boolean = false
 ) {
   const currentDate = new Date();
+  const currentMonthKey = formatDateKey(currentDate);
   const futureExpenses: { [key: string]: number } = {};
 
   subscriptions.forEach(subscription => {
@@ -53,21 +91,24 @@ export function calculateSubscriptionExpenses(
       const startDate = new Date(subscription.date);
       if (!isValidDate(startDate)) return;
 
-      // Se a assinatura é recorrente, calcular para todos os meses futuros
+      // Se a assinatura é recorrente, calcular para todos os meses
       if (subscription.recurring) {
-        for (let i = 0; i < monthsAhead; i++) {
+        const startMonth = includePastExpenses ? -monthsAhead : 0;
+        for (let i = startMonth; i < monthsAhead; i++) {
           const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
           const monthKey = formatDateKey(monthDate);
           
           // Só adiciona se a data do mês é maior ou igual à data de início da assinatura
-          if (monthDate >= startDate) {
+          // e é o mês atual ou futuro (se não incluir passado)
+          if (monthDate >= startDate && (includePastExpenses || monthKey >= currentMonthKey)) {
             futureExpenses[monthKey] = (futureExpenses[monthKey] || 0) + subscription.amount;
           }
         }
       } else {
         // Se não é recorrente, adiciona apenas no mês específico
         const monthKey = formatDateKey(startDate);
-        if (startDate >= currentDate) {
+        const startMonthKey = formatDateKey(startDate);
+        if (includePastExpenses || startMonthKey >= currentMonthKey) {
           futureExpenses[monthKey] = (futureExpenses[monthKey] || 0) + subscription.amount;
         }
       }
@@ -81,9 +122,11 @@ export function calculateSubscriptionExpenses(
 
 export function calculateCashExpenses(
   cashExpenses: CashExpense[],
-  monthsAhead: number = 12
+  monthsAhead: number = 12,
+  includePastExpenses: boolean = false
 ) {
   const currentDate = new Date();
+  const currentMonthKey = formatDateKey(currentDate);
   const futureExpenses: { [key: string]: number } = {};
 
   // Agrupa os gastos em dinheiro por mês
@@ -93,7 +136,13 @@ export function calculateCashExpenses(
       if (!isValidDate(expenseDate)) return;
 
       const monthKey = formatDateKey(expenseDate);
-      futureExpenses[monthKey] = (futureExpenses[monthKey] || 0) + expense.amount;
+      
+      // Inclui o gasto se:
+      // 1. Estamos incluindo gastos passados OU
+      // 2. É um gasto do mês atual ou futuro
+      if (includePastExpenses || monthKey >= currentMonthKey) {
+        futureExpenses[monthKey] = (futureExpenses[monthKey] || 0) + expense.amount;
+      }
     } catch (error) {
       console.error('Erro ao processar gasto em dinheiro:', error);
     }
@@ -112,7 +161,12 @@ export function generateMonthlyData(
   const currentDate = new Date();
   const monthlyData = [];
 
-  for (let i = 0; i < monthsAhead; i++) {
+  // Calcula o número de meses para trás e para frente
+  const monthsBack = Math.floor(monthsAhead / 2);
+  const monthsForward = monthsAhead - monthsBack;
+
+  // Gera dados para os meses passados e futuros
+  for (let i = -monthsBack; i < monthsForward; i++) {
     try {
       const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
       const monthKey = formatDateKey(monthDate);
@@ -120,6 +174,7 @@ export function generateMonthlyData(
       const creditExpenseAmount = creditExpenses[monthKey] || 0;
       const subscriptionExpenseAmount = subscriptionExpenses[monthKey] || 0;
       const cashExpenseAmount = cashExpenses[monthKey] || 0;
+      const totalExpenses = creditExpenseAmount + subscriptionExpenseAmount + cashExpenseAmount;
 
       monthlyData.push({
         name: monthDate.toLocaleString('pt-BR', { month: 'short' }),
@@ -128,13 +183,16 @@ export function generateMonthlyData(
         creditExpenses: creditExpenseAmount,
         subscriptionExpenses: subscriptionExpenseAmount,
         cashExpenses: cashExpenseAmount,
-        totalExpenses: creditExpenseAmount + subscriptionExpenseAmount + cashExpenseAmount,
-        balance: income - (creditExpenseAmount + subscriptionExpenseAmount + cashExpenseAmount)
+        totalExpenses,
+        balance: income - totalExpenses
       });
     } catch (error) {
       console.error('Erro ao gerar dados mensais:', error);
     }
   }
+
+  // Ordena os dados por data
+  monthlyData.sort((a, b) => a.month.localeCompare(b.month));
 
   return monthlyData;
 }
@@ -146,15 +204,18 @@ export function calculateFinancialMetrics(
   cashExpenses: { [key: string]: number }
 ) {
   try {
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = formatDateKey(new Date());
+    
+    // Calcula os gastos do mês atual
     const currentCreditExpenses = creditExpenses[currentMonth] || 0;
     const currentSubscriptionExpenses = subscriptionExpenses[currentMonth] || 0;
     const currentCashExpenses = cashExpenses[currentMonth] || 0;
     const totalCurrentExpenses = currentCreditExpenses + currentSubscriptionExpenses + currentCashExpenses;
 
-    const creditExpensesValues = Object.values(creditExpenses);
-    const subscriptionExpensesValues = Object.values(subscriptionExpenses);
-    const cashExpensesValues = Object.values(cashExpenses);
+    // Calcula a média de gastos considerando apenas meses com gastos
+    const creditExpensesValues = Object.values(creditExpenses).filter(value => value > 0);
+    const subscriptionExpensesValues = Object.values(subscriptionExpenses).filter(value => value > 0);
+    const cashExpensesValues = Object.values(cashExpenses).filter(value => value > 0);
     
     const averageCreditExpenses = creditExpensesValues.length > 0 
       ? creditExpensesValues.reduce((a, b) => a + b, 0) / creditExpensesValues.length 
@@ -168,12 +229,20 @@ export function calculateFinancialMetrics(
       ? cashExpensesValues.reduce((a, b) => a + b, 0) / cashExpensesValues.length
       : 0;
 
+    const averageMonthlyExpenses = averageCreditExpenses + averageSubscriptionExpenses + averageCashExpenses;
+
     return {
       currentMonthExpenses: totalCurrentExpenses,
       currentMonthBalance: income - totalCurrentExpenses,
       savingsRate: income > 0 ? ((income - totalCurrentExpenses) / income) * 100 : 0,
       expenseToIncomeRatio: income > 0 ? (totalCurrentExpenses / income) * 100 : 0,
-      averageMonthlyExpenses: averageCreditExpenses + averageSubscriptionExpenses + averageCashExpenses
+      averageMonthlyExpenses,
+      // Adiciona detalhamento dos gastos atuais
+      currentMonthDetails: {
+        creditExpenses: currentCreditExpenses,
+        subscriptionExpenses: currentSubscriptionExpenses,
+        cashExpenses: currentCashExpenses
+      }
     };
   } catch (error) {
     console.error('Erro ao calcular métricas financeiras:', error);
@@ -182,7 +251,12 @@ export function calculateFinancialMetrics(
       currentMonthBalance: income,
       savingsRate: 100,
       expenseToIncomeRatio: 0,
-      averageMonthlyExpenses: 0
+      averageMonthlyExpenses: 0,
+      currentMonthDetails: {
+        creditExpenses: 0,
+        subscriptionExpenses: 0,
+        cashExpenses: 0
+      }
     };
   }
 }

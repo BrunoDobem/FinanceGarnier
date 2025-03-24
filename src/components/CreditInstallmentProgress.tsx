@@ -23,16 +23,17 @@ export const CreditInstallmentProgress: React.FC<CreditInstallmentProgressProps>
   };
 
   const invoiceInfo = calculator.getInvoiceInfo(today, purchase);
+  const installments = calculator.calculateInstallments(purchase);
 
   const getProgressInfo = () => {
-    if (!invoiceInfo.currentInstallment) return null;
-
-    const paidInstallments = invoiceInfo.installmentDetails?.filter(i => i.isPaid) || [];
-    const currentInstallment = invoiceInfo.currentInstallment;
+    const paidInstallments = installments.filter(i => i.isPaid);
     const totalInstallments = expense.installments;
+    const progress = (paidInstallments.length / totalInstallments) * 100;
     
-    const progress = (currentInstallment / totalInstallments) * 100;
-    const nextUnpaidInstallment = invoiceInfo.installmentDetails?.find(i => !i.isPaid);
+    const nextUnpaidInstallment = installments.find(i => !i.isPaid);
+    const currentInstallment = nextUnpaidInstallment 
+      ? nextUnpaidInstallment.installmentNumber 
+      : totalInstallments;
 
     return {
       progress: Math.min(100, progress),
