@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarIcon, Plus, PlusCircle, Trash2 } from "lucide-react";
+import { CalendarIcon, Plus, PlusCircle, Trash2, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
   Card, 
@@ -43,10 +43,11 @@ import { SearchInput } from "@/components/SearchInput";
 
 export default function Income() {
   const { t, language } = useLanguage();
-  const { categories, incomes, addTransaction, deleteTransaction } = useFinance();
+  const { categories, incomes, addTransaction, updateTransaction, deleteTransaction } = useFinance();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingIncome, setEditingIncome] = useState<IncomeType | null>(null);
   const [newIncome, setNewIncome] = useState({
     description: "",
     amount: "",
@@ -58,42 +59,63 @@ export default function Income() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newIncome.description || !newIncome.amount || !newIncome.category) {
+    const form = editingIncome ? editingIncome : newIncome;
+    
+    if (!form.description || !form.amount || !form.category) {
       toast({
-        title: "Missing fields",
-        description: "Please fill in all required fields",
+        title: t("error"),
+        description: t("please_fill_required_fields"),
         variant: "destructive",
       });
       return;
     }
 
-    const amount = parseFloat(newIncome.amount);
+    const amount = typeof form.amount === 'string' ? parseFloat(form.amount) : form.amount;
     
     if (isNaN(amount) || amount <= 0) {
       toast({
-        title: "Invalid amount",
-        description: "Please enter a valid amount",
+        title: t("error"),
+        description: t("invalid_amount"),
         variant: "destructive",
       });
       return;
     }
 
-    // Create a new income entry
-    const income: Omit<IncomeType, "id" | "createdAt" | "updatedAt"> = {
-      type: "income",
-      description: newIncome.description,
-      amount: amount,
-      category: newIncome.category,
-      date: newIncome.date,
-      source: newIncome.source || undefined,
-    };
+    if (editingIncome) {
+      // Update existing income
+      const updatedIncome: IncomeType = {
+        ...editingIncome,
+        description: form.description,
+        amount: amount,
+        category: form.category,
+        source: form.source || undefined,
+        date: form.date,
+      };
 
-    addTransaction(income);
-    
-    toast({
-      title: "Income added",
-      description: `Added ${income.description} to your income`,
-    });
+      updateTransaction(updatedIncome);
+      
+      toast({
+        title: t("success"),
+        description: t("transaction_updated"),
+      });
+    } else {
+      // Create a new income
+      const income: Omit<IncomeType, "id" | "createdAt" | "updatedAt"> = {
+        type: "income",
+        description: form.description,
+        amount: amount,
+        category: form.category,
+        source: form.source || undefined,
+        date: form.date,
+      };
+
+      addTransaction(income);
+      
+      toast({
+        title: t("success"),
+        description: t("income_added"),
+      });
+    }
     
     // Reset form and close dialog
     setNewIncome({
@@ -103,7 +125,16 @@ export default function Income() {
       source: "",
       date: new Date().toISOString().split("T")[0],
     });
+    setEditingIncome(null);
     setIsDialogOpen(false);
+  };
+
+  const handleEdit = (income: IncomeType) => {
+    setEditingIncome({
+      ...income,
+      amount: income.amount.toString(),
+    });
+    setIsDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
@@ -148,64 +179,95 @@ export default function Income() {
             Track your income sources
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setEditingIncome(null);
+            setNewIncome({
+              description: "",
+              amount: "",
+              category: "",
+              source: "",
+              date: new Date().toISOString().split("T")[0],
+            });
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="gap-2">
-              <Plus className="h-4 w-4" /> Add Income
+              <Plus className="h-4 w-4" /> {t("add_income")}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <form onSubmit={handleSubmit}>
               <DialogHeader>
-                <DialogTitle>Add Income</DialogTitle>
+                <DialogTitle>
+                  {editingIncome ? t("edit") : t("add_income")}
+                </DialogTitle>
                 <DialogDescription>
-                  Add a new income entry to track your earnings.
+                  {editingIncome 
+                    ? t("edit_category_description")
+                    : t("add_income_description")}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">{t("description")}</Label>
                   <Input
                     id="description"
-                    placeholder="Salary, Freelance, etc."
-                    value={newIncome.description}
+                    placeholder="Ex: Salário, Freelance..."
+                    value={editingIncome?.description || newIncome.description}
                     onChange={(e) =>
-                      setNewIncome({
-                        ...newIncome,
-                        description: e.target.value,
-                      })
+                      editingIncome
+                        ? setEditingIncome({
+                            ...editingIncome,
+                            description: e.target.value,
+                          })
+                        : setNewIncome({
+                            ...newIncome,
+                            description: e.target.value,
+                          })
                     }
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="amount">Amount</Label>
+                  <Label htmlFor="amount">{t("amount")}</Label>
                   <Input
                     id="amount"
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={newIncome.amount}
+                    value={editingIncome?.amount || newIncome.amount}
                     onChange={(e) =>
-                      setNewIncome({
-                        ...newIncome,
-                        amount: e.target.value,
-                      })
+                      editingIncome
+                        ? setEditingIncome({
+                            ...editingIncome,
+                            amount: e.target.value,
+                          })
+                        : setNewIncome({
+                            ...newIncome,
+                            amount: e.target.value,
+                          })
                     }
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category">{t("category")}</Label>
                   <Select
-                    value={newIncome.category}
+                    value={editingIncome?.category || newIncome.category}
                     onValueChange={(value) =>
-                      setNewIncome({
-                        ...newIncome,
-                        category: value,
-                      })
+                      editingIncome
+                        ? setEditingIncome({
+                            ...editingIncome,
+                            category: value,
+                          })
+                        : setNewIncome({
+                            ...newIncome,
+                            category: value,
+                          })
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a category" />
+                      <SelectValue placeholder={t("select_category")} />
                     </SelectTrigger>
                     <SelectContent>
                       {incomeCategories.map((category) => (
@@ -223,38 +285,54 @@ export default function Income() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="source">Source (Optional)</Label>
+                  <Label htmlFor="source">{t("source")}</Label>
                   <Input
                     id="source"
-                    placeholder="Company name, client, etc."
-                    value={newIncome.source}
+                    placeholder={t("source_placeholder")}
+                    value={editingIncome?.source || newIncome.source}
                     onChange={(e) =>
-                      setNewIncome({
-                        ...newIncome,
-                        source: e.target.value,
-                      })
+                      editingIncome
+                        ? setEditingIncome({
+                            ...editingIncome,
+                            source: e.target.value,
+                          })
+                        : setNewIncome({
+                            ...newIncome,
+                            source: e.target.value,
+                          })
                     }
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="date">Date</Label>
-                  <div className="flex">
-                    <Input
-                      id="date"
-                      type="date"
-                      value={newIncome.date}
-                      onChange={(e) =>
-                        setNewIncome({
-                          ...newIncome,
-                          date: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
+                  <Label htmlFor="date">{t("date")}</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={editingIncome?.date ? (typeof editingIncome.date === 'string' ? editingIncome.date.split('T')[0] : editingIncome.date) : newIncome.date}
+                    onChange={(e) =>
+                      editingIncome
+                        ? setEditingIncome({
+                            ...editingIncome,
+                            date: e.target.value,
+                          })
+                        : setNewIncome({
+                            ...newIncome,
+                            date: e.target.value,
+                          })
+                    }
+                  />
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Add Income</Button>
+                <Button variant="outline" type="button" onClick={() => {
+                  setIsDialogOpen(false);
+                  setEditingIncome(null);
+                }}>
+                  {t("cancel")}
+                </Button>
+                <Button type="submit">
+                  {editingIncome ? t("save") : t("add")}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -353,17 +431,17 @@ export default function Income() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Source</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>{t("description")}</TableHead>
+                      <TableHead>{t("category")}</TableHead>
+                      <TableHead>{t("source")}</TableHead>
+                      <TableHead>{t("date")}</TableHead>
+                      <TableHead className="text-right">{t("amount")}</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredIncomes.map((income) => (
-                      <TableRow key={income.id} className="group">
+                      <TableRow key={income.id}>
                         <TableCell className="font-medium">
                           {income.description}
                         </TableCell>
@@ -379,22 +457,29 @@ export default function Income() {
                         <TableCell>
                           {income.source || "-"}
                         </TableCell>
-                        <TableCell className="flex items-center gap-1">
-                          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                        <TableCell>
                           {formatDate(income.date, "dd/MM/yyyy", language)}
                         </TableCell>
-                        <TableCell className="text-right font-medium text-green-500">
+                        <TableCell className="text-right font-medium">
                           {formatCurrency(income.amount, language)}
                         </TableCell>
-                        <TableCell className="text-right p-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => handleDelete(income.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                          </Button>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(income)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(income.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

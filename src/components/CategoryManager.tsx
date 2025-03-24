@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useFinance } from "@/providers/FinanceProvider";
 import { useLanguage } from "@/providers/LanguageProvider";
@@ -32,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SearchInput } from "@/components/SearchInput";
 
 // Type colors for visual selection
 const colorOptions = [
@@ -59,6 +59,7 @@ export function CategoryManager() {
   const { categories, addCategory, updateCategory, deleteCategory } = useFinance();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [editingCategory, setEditingCategory] = useState<CategoryType | null>(null);
   const [newCategory, setNewCategory] = useState<{
     name: string;
@@ -168,6 +169,12 @@ export function CategoryManager() {
       type: ["income"],
     });
   };
+
+  // Filter categories based on search term
+  const filteredCategories = categories.filter(category => 
+    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getCategoryTypeLabels(category.type).toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <Card>
@@ -315,62 +322,69 @@ export function CategoryManager() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border">
-          {categories.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("category")}</TableHead>
-                  <TableHead>{t("type")}</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {categories.map((category) => (
-                  <TableRow key={category.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: category.color }}
-                        />
-                        <span className="font-medium">{category.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {getCategoryTypeLabels(category.type)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(category)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(category.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+        <div className="space-y-4">
+          <SearchInput
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder={t("search_categories")}
+          />
+          <div className="rounded-md border">
+            {filteredCategories.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("category")}</TableHead>
+                    <TableHead>{t("type")}</TableHead>
+                    <TableHead className="w-[100px]"></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <Tags className="h-10 w-10 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold">{t("no_categories")}</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                {t("no_categories_description")}
-              </p>
-            </div>
-          )}
+                </TableHeader>
+                <TableBody>
+                  {filteredCategories.map((category) => (
+                    <TableRow key={category.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: category.color }}
+                          />
+                          <span className="font-medium">{category.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {getCategoryTypeLabels(category.type)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(category)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(category.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-8 text-center">
+                <Tags className="h-10 w-10 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold">{t("no_categories")}</h3>
+                <p className="text-sm text-muted-foreground max-w-sm mt-1">
+                  {t("no_categories_description")}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
