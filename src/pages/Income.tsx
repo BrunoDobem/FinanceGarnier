@@ -351,7 +351,7 @@ export default function Income() {
                 {formatCurrency(totalIncome, language)}
               </div>
               <p className="text-sm text-muted-foreground mt-2">
-                From {incomes.length} income sources
+                {t("from")} {incomes.length} {t("income_sources")}
               </p>
             </div>
           </CardContent>
@@ -405,7 +405,7 @@ export default function Income() {
               ) : (
                 <div className="flex flex-col items-center justify-center py-4 text-center">
                   <p className="text-sm text-muted-foreground">
-                    No income recorded yet
+                    {t("no_income_recorded_yet")}
                   </p>
                 </div>
               )}

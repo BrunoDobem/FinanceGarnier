@@ -336,7 +336,7 @@ export default function CashExpenses() {
                 {formatCurrency(totalCash, language)}
               </div>
               <p className="text-sm text-muted-foreground mt-2">
-                {cashExpenses.length} cash expenses
+                {cashExpenses.length} {t("cash_expenses")}
               </p>
             </div>
           </CardContent>

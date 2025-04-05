@@ -452,6 +452,25 @@ export const ptBR_translations: Translation = {
   edit_cash_expense_description: "Modifique os detalhes da despesa em dinheiro",
   welcome: "Bem-vindo ao seu aplicativo de finanças",
   active_subscriptions: "Assinaturas Ativas",
+  no_income_recorded_yet: "Nenhuma receita registrada ainda",
+  no_income_entries: "Nenhuma entrada de receita",
+  no_income_entries_description: "Você ainda não tem nenhuma entrada de receita cadastrada",
+  from: "De",
+  credit_cards: "Cartões de Crédito",
+  closing_day: "Dia de Fechamento",
+  due_day: "Dia de Vencimento",
+  card_updated: "Cartão atualizado com sucesso",
+  card_added: "Cartão adicionado com sucesso",
+  card_deleted: "Cartão excluído com sucesso",
+  manage_credit_cards: "Gerenciar Cartões de Crédito",
+  theme: "Tema",
+  select_theme: "Selecione o tema",
+  choose_theme: "Escolha o tema",
+  set_theme: "Definir tema",
+  theme_changed: "Tema alterado com sucesso",
+  theme_changed_description: "O tema do aplicativo foi alterado com sucesso",
+  
+  
 };
 
 // English translations
